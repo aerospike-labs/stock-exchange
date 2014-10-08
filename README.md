@@ -147,7 +147,7 @@ The accept message will be sent to the offering broker as a signal that transact
 
 When the offer is accepted it is logged as a transaction in the exchange, then an "update" event is sent out to the brokers.
 
-### Exchange Price Update Noticiation
+### Exchange Price Update Notification
 
 When a transaction is closed, then the exchange will broadcast a notification of the last price of a stock.
 

@@ -56,33 +56,33 @@ When a broker wants to offer to buy or sell shares, it will send:
 
 	{ "method": "Offer", 
 	  "params": [{
-	    "OfferType": TYPE,
-	    "Broker": BROKER, 
-	    "Offer": OFFER, 
-	    "Ticker": TICKER, 
+	    "BrokerId": BROKER_ID,
+	    "OfferId": OFFER_ID,
+	    "OfferType": OFFER_TYPE,
+	    "TTL": OFFER_TTL,
+	    "Ticker": TICKER,
 	    "Quantity": QUANTITY,
-	    "Price": PRICE, 
-	    "TTL": TTL
-	  }], 
+	    "Price": PRICE
+	  }],
 	  "id": ID
 	}
 
 Where:
 
-- `TYPE` is either "buy" or "sell"
-- `BROKER` is the broker's token.
-- `OFFER` is the broker's identifier for the offer. Can be used to reference the offer later, i.e. Cancel.
+- `BROKER_ID` is the broker's identifier.
+- `OFFER_ID` is the broker's identifier for the offer. Can be used to reference the offer later, i.e. Cancel.
+- `OFFER_TYPE` is either "buy" or "sell"
+- `OFFER_TTL` the time to live for the offer.
 - `TICKER` is the ticker symbol to make an offer on.
-- `QTY` is the number of shares to of the ticket the offer is valid for.
+- `QUANTITY` is the number of shares to of the ticket the offer is valid for.
 - `PRICE` is the price per share on the offer.
-- `TTL` the time to live for the offer.
 - `ID` the opaque value to be used to match the response to the request.
 
 The offer will live in the exchange until either it expires, is cancelled or is accepted.
 
 The response will be either an error or an ok:
 
-	{"result": "ok", "id": [BROKER, OFFER]}
+	{"result": "ok", "id": ID}
 
 
 ### Cancel Offer
@@ -91,21 +91,21 @@ When a broker wants to offer to sell shares, it will send:
 
 	{ "method": "Cancel", 
 	  "params": [{
-	    "Broker": BROKER, 
-	    "Offer": OFFER
+	    "BrokerId": BROKER_ID, 
+	    "OfferId": OFFER_ID
 	  }], 
 	  "id": ID
 	}
 
 Where:
 
-- `BROKER` is the broker's token.
-- `OFFER` is the broker's identifier for the offer.
+- `BROKER_ID` is the broker's token.
+- `OFFER_ID` is the broker's identifier for the offer.
 - `ID` the opaque value to be used to match the response to the request.
 
 The response will be either an error or an ok:
 
-	{"result": "ok", "id": [BROKER, OFFER]}
+	{"result": "ok", "id": ID}
 
 ### Transaction Notification
 
@@ -113,32 +113,37 @@ This notification is send to the parties involved in the transaction.
 
 	{ "method": "Transaction", 
 	  "params": [{
-	    "Buyer": BROKER, 
-	    "Seller": BROKER, 
-	    "Offer": OFFER,
-	    "Ticker": TICKER, 
-	    "Quantity": QUANTITY,
-	    "Price": PRICE, 
-	  }], 
-	  "id": ID
+	    "Buyer": {
+	      "BrokerId": BROKER_ID,
+	      "OfferId": OFFER_ID
+	    },
+	    "Seller": {
+	      "BrokerId": BROKER_ID,
+	      "OfferId": OFFER_ID
+	    },
+	    "Stock" : {
+	      "Ticker": TICKER,
+	      "Quantity": QUANTITY,
+	      "Price": PRICE
+	    }
+	  }]
 	}
 
 Where:
 
-- `BUYER` is the buying broker's token.
-- `SELLER` is the selling broker's token.
-- `OFFER` is the broker's identifier for the offer. Can be used to reference the offer later, i.e. Cancel.
+- `BROKER_ID` is the broker's identifier..
+- `OFFER_ID` is the offer's idenfifier. Can be used to reference the offer later, i.e. Cancel.
 - `TICKER` is the ticker symbol to make an offer on.
-- `QTY` is the number of shares to of the ticket the offer is valid for.
+- `QUANTITY` is the number of shares to of the ticket the offer is valid for.
 - `PRICE` is the price per share on the offer.
 - `ID` the opaque value to be used to match the response to the request.
 
 
-### Price List
+### Stock List
 
-Broker can request the current pricelist for all stocks.
+Broker can request the current list of stocks and last sale price for all stocks.
 
-	{ "method": "PriceList", 
+	{ "method": "StockList", 
 	  "params": [], 
 	  "id": ID
 	}
@@ -150,7 +155,7 @@ Where:
 The response will be:
 
 	{ "result": [
-	    { "Ticket": TICKET, 
+	    { "Ticker": TICKER, 
 	      "Quantity": QUANTITY,
 	      "Price": PRICE
 	    }, 
@@ -177,12 +182,13 @@ Where:
 The response will be:
 
 	{ "result": [
-	    { "OfferType": TYPE,
-	      "Broker": BROKER,
-	      "Offer": OFFER,
-	      "Ticket": TICKET, 
+	    { "BrokerId": BROKER_ID,
+	      "OfferId": OFFER_ID,
+	      "OfferType": OFFER_TYPE,
+	      "Ticker": TICKER,
 	      "Quantity": QUANTITY,
-	      "Price": PRICE
+	      "Price": PRICE,
+	      "TTL": TTL
 	    }, 
 		...
 	  ], 

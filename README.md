@@ -43,41 +43,40 @@ To summarize:
 
 		{"result": any, "error": any, "id": any}
 
-3. Event message is as follows:
+3. Notification message is as follows:
 
 		{"method": string, "params": [any...]}
 
 	Note Event and Request are the same, except the key difference between the two is the `id` field.
 
 
-### Exchange is Open
+### Offer
 
-The message brokers will recieve to indicate the market is open is:
+When a broker wants to offer to buy or sell shares, it will send:
 
-	{"method": "open", "params": []}
-
-### Exchange is Closed
-
-The message brokers will recieve to indicate the market is closed is:
-
-	{"method": "close", "params": []}
-
-### Broker Buy Offer
-
-When a broker wants to offer to buy shares, it will send:
-
-	{"method": "buy", "params": [TICKER, QTY, PRICE, TTL], "id": [BROKER, OFFER]}
+	{ "method": "Offer", 
+	  "params": [{
+	    "OfferType": TYPE,
+	    "Broker": BROKER, 
+	    "Offer": OFFER, 
+	    "Ticker": TICKER, 
+	    "Quantity": QUANTITY,
+	    "Price": PRICE, 
+	    "TTL": TTL
+	  }], 
+	  "id": ID
+	}
 
 Where:
 
+- `TYPE` is either "buy" or "sell"
 - `BROKER` is the broker's token.
-- `OFFER` is the broker's identifier for the offer. (opaque value)
+- `OFFER` is the broker's identifier for the offer. Can be used to reference the offer later, i.e. Cancel.
 - `TICKER` is the ticker symbol to make an offer on.
 - `QTY` is the number of shares to of the ticket the offer is valid for.
 - `PRICE` is the price per share on the offer.
 - `TTL` the time to live for the offer.
-
-The tuple of `[BROKER,OFFER]` must be unique.
+- `ID` the opaque value to be used to match the response to the request.
 
 The offer will live in the exchange until either it expires, is cancelled or is accepted.
 
@@ -86,83 +85,106 @@ The response will be either an error or an ok:
 	{"result": "ok", "id": [BROKER, OFFER]}
 
 
-### Broker Sell Offer
+### Cancel Offer
 
 When a broker wants to offer to sell shares, it will send:
 
-	{"method": "sell", "params": [TICKER, QTY, PRICE, TTL], "id": [BROKER, OFFER]}
+	{ "method": "Cancel", 
+	  "params": [{
+	    "Broker": BROKER, 
+	    "Offer": OFFER
+	  }], 
+	  "id": ID
+	}
 
 Where:
 
 - `BROKER` is the broker's token.
-- `OFFER` is the broker's identifier for the offer. (opaque value)
+- `OFFER` is the broker's identifier for the offer.
+- `ID` the opaque value to be used to match the response to the request.
+
+The response will be either an error or an ok:
+
+	{"result": "ok", "id": [BROKER, OFFER]}
+
+### Transaction Notification
+
+This notification is send to the parties involved in the transaction.
+
+	{ "method": "Transaction", 
+	  "params": [{
+	    "Buyer": BROKER, 
+	    "Seller": BROKER, 
+	    "Offer": OFFER,
+	    "Ticker": TICKER, 
+	    "Quantity": QUANTITY,
+	    "Price": PRICE, 
+	  }], 
+	  "id": ID
+	}
+
+Where:
+
+- `BUYER` is the buying broker's token.
+- `SELLER` is the selling broker's token.
+- `OFFER` is the broker's identifier for the offer. Can be used to reference the offer later, i.e. Cancel.
 - `TICKER` is the ticker symbol to make an offer on.
 - `QTY` is the number of shares to of the ticket the offer is valid for.
 - `PRICE` is the price per share on the offer.
-- `TTL` the time to live for the offer.
-
-The tuple of `[BROKER,OFFER]` must be unique.
-
-The offer will live in the exchange until either it expires, is cancelled or is accepted.
-
-The response will be either an error or an ok:
-
-	{"result": "ok", "id": [BROKER, OFFER]}
+- `ID` the opaque value to be used to match the response to the request.
 
 
-### Broker Cancel Offer
-
-When a broker wants to offer to sell shares, it will send:
-
-	{"method": "cancel", "params": [], "id": [BROKER, OFFER]}
-
-Where:
-
-- `BROKER` is the broker's token.
-- `OFFER` is the broker's identifier for the offer. (opaque value)
-
-The tuple of `[BROKER,OFFER]` must be unique.
-
-The response will be either an error or an ok:
-
-	{"result": "ok", "id": [BROKER, OFFER]}
-
-### Broker Accept Offer
-
-When a Broker accepts an offer, they will send an "accept" message containing the id of the offer.
-
-	{"method": "accept": "params": [OFFER_BROKER, OFFER], "id": [ACCEPT_BROKER]}
-
-Where:
-
-- `OFFER_BROKER` is the offering broker's token.
-- `OFFER` is the offering broker's offering id. (opaque value)
-- `ACCEPT_BROKER` is the accepting broker's token.
-
-The response will be either an error or an ok:
-
-	{"result": "ok", "id": [BROKER, OFFER]}
-
-The accept message will be sent to the offering broker as a signal that transaction has closed.
-
-When the offer is accepted it is logged as a transaction in the exchange, then an "update" event is sent out to the brokers.
-
-### Exchange Price Update Notification
-
-When a transaction is closed, then the exchange will broadcast a notification of the last price of a stock.
-
-	{"method": "price", "params": [TICKET, QTY, PRICE]}
-
-
-### Exchange Price List
+### Price List
 
 Broker can request the current pricelist for all stocks.
 
-	{"method": "prices", "params": [], "id": [BROKER,REQ]}
+	{ "method": "PriceList", 
+	  "params": [], 
+	  "id": ID
+	}
+
+Where:
+
+- `ID` the opaque value to be used to match the response to the request.
 
 The response will be:
 
-	{"result": [[TICKET, QTY, PRICE], ...], "id": [BROKER,REQ]}
+	{ "result": [
+	    { "Ticket": TICKET, 
+	      "Quantity": QUANTITY,
+	      "Price": PRICE
+	    }, 
+		...
+	  ], 
+	  "id": ID
+	}
 
 
+### Offer List
 
+
+Broker can request the current pricelist for all stocks.
+
+	{ "method": "OfferList", 
+	  "params": [], 
+	  "id": ID
+	}
+
+Where:
+
+- `ID` the opaque value to be used to match the response to the request.
+
+The response will be:
+
+	{ "result": [
+	    { "OfferType": TYPE,
+	      "Broker": BROKER,
+	      "Offer": OFFER,
+	      "Ticket": TICKET, 
+	      "Quantity": QUANTITY,
+	      "Price": PRICE
+	    }, 
+		...
+	  ], 
+	  "id": ID
+	}

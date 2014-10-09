@@ -4,6 +4,15 @@ import (
 	"encoding/json"
 )
 
+const (
+	T_OFFER = iota
+	T_BROKEROFFER
+	T_STOCKLIST
+	T_OFFERLIST
+	T_TRASNACTION
+	T_STOCK
+)
+
 type Stock struct {
 	Ticker   string
 	Quantity uint64

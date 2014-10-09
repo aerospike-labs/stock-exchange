@@ -1,7 +1,7 @@
 package models
 
 import (
-	"encoding/json"
+// "encoding/json"
 )
 
 func Unmarshal(raw []byte) interface{} {
@@ -11,7 +11,7 @@ func Unmarshal(raw []byte) interface{} {
 	res := &Response{
 		Result: stocks,
 		Error:  nil,
-		Id:     message.Id,
+		Id:     []uint64{1, 1},
 	}
 
 	return res

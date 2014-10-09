@@ -24,7 +24,7 @@ type StockList []Stock
 type Offer struct {
 	BrokerId  uint64
 	OfferId   uint64
-	OfferType string
+	OfferType uint8
 	TTL       uint32
 	Ticker    string
 	Quantity  uint64

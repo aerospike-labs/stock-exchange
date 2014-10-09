@@ -29,18 +29,22 @@ func NewExchangeClient(borkerId uint64, host string, port uint16) (*ExchangeClie
 	return exchange, nil
 }
 
+// Listen for messages
 func (exchange *ExchangeClient) Listen() {
 	go exchange.client.listen()
 }
 
+// Close the connection
 func (exchange *ExchangeClient) Close() {
 	exchange.client.close()
 }
 
+// Return the channel to receive messages
 func (exchange *ExchangeClient) Messages() chan interface{} {
 	return exchange.client.messages
 }
 
+// Return the channel to be notified when finished
 func (exchange *ExchangeClient) Done() chan bool {
 	return exchange.client.done
 }

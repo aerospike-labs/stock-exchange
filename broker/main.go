@@ -44,13 +44,16 @@ func main() {
 	ex.Listen()
 
 	// First transaction is to get a list of stocks in the market
-	ex.Stocks()
+	go ex.Stocks()
+
+	counter := 0
 
 	for {
 		select {
 		case message := <-ex.Messages():
 			switch m := message.(type) {
 			case *Response:
+				counter += 1
 				switch r := m.Result.(type) {
 				case StockList:
 					// A stock list is received, so we will process it
@@ -65,31 +68,41 @@ func main() {
 					// This should never be reached
 					logch <- fmt.Sprintf("Unhandled: %#v", r)
 				}
+				if counter == 12000 {
+					fmt.Printf("count: %d\n", counter)
+					return
+				}
 			case *Notification:
 				logch <- m
 			}
 		case <-ex.Done():
 			logch <- fmt.Sprintf("\n\nDONE!!!! \n\n")
+
 			return
 		}
 	}
+
 }
 
 func listenLog() {
 	for {
+
 		select {
-		case msg := <-logch:
-			switch m := msg.(type) {
-			case string:
-				log.Println(m)
-			case *Request:
-				log.Printf("<REQ> %d %s %#v", m.Id[0], m.Method, m.Params)
-			case *Response:
-				log.Printf("<RES> %d %#v %#v", m.Id[0], m.Result, m.Error)
-			case *Notification:
-				log.Printf("<NOT> %s %#v", m.Method, m.Params)
-			}
+		case <-logch:
 		}
+		// select {
+		// case msg := <-logch:
+		// 	switch m := msg.(type) {
+		// 	case string:
+		// 		log.Println(m)
+		// 	case *Request:
+		// 		log.Printf("<REQ> %d %s %#v", m.Id[0], m.Method, m.Params)
+		// 	case *Response:
+		// 		log.Printf("<RES> %d %#v %#v", m.Id[0], m.Result, m.Error)
+		// 	case *Notification:
+		// 		log.Printf("<NOT> %s %#v", m.Method, m.Params)
+		// 	}
+		// }
 	}
 }
 

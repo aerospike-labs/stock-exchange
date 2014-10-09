@@ -43,8 +43,6 @@ func (c *WebSocketClient) listen() {
 			return
 		}
 
-		logch <- fmt.Sprintf("%#v", string(raw))
-
 		msg := Unmarshal(raw)
 
 		if msg == nil {

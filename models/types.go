@@ -1,5 +1,9 @@
 package models
 
+import (
+	"encoding/json"
+)
+
 type Stock struct {
 	Ticker   string
 	Quantity uint64
@@ -36,13 +40,13 @@ type Transaction struct {
 type Request struct {
 	Method string        `json:"method"`
 	Params []interface{} `json:"params"`
-	Id     uint64        `json:"id"`
+	Id     []uint64      `json:"id"`
 }
 
 type Response struct {
 	Result interface{} `json:"result"`
 	Error  interface{} `json:"error"`
-	Id     uint64      `json:"id"`
+	Id     []uint64    `json:"id"`
 }
 
 type Notification struct {
@@ -51,19 +55,19 @@ type Notification struct {
 }
 
 type Message struct {
-	Method string        `json:"method"`
-	Params []interface{} `json:"params"`
-	Result interface{}   `json:"result"`
-	Error  interface{}   `json:"error"`
-	Id     uint64        `json:"id"`
+	Method string          `json:"method"`
+	Params []interface{}   `json:"params"`
+	Result json.RawMessage `json:"result"`
+	Error  json.RawMessage `json:"error"`
+	Id     []uint64        `json:"id"`
 }
 
 func (m *Message) IsRequest() bool {
-	return len(m.Method) != 0 && m.Id != 0
+	return len(m.Method) != 0 && m.Id != nil && len(m.Id) == 2
 }
 
 func (m *Message) IsNotification() bool {
-	return len(m.Method) != 0 && m.Id == 0
+	return len(m.Method) != 0 && m.Id == nil
 }
 
 func (m *Message) IsResponse() bool {

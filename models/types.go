@@ -4,6 +4,13 @@ import (
 	"encoding/json"
 )
 
+type OfferType uint8
+
+const (
+	BUY OfferType = iota
+	SELL
+)
+
 const (
 	T_OFFER = iota
 	T_BROKEROFFER
@@ -24,7 +31,7 @@ type StockList []Stock
 type Offer struct {
 	BrokerId  uint64
 	OfferId   uint64
-	OfferType uint8
+	OfferType OfferType
 	TTL       uint32
 	Ticker    string
 	Quantity  uint64

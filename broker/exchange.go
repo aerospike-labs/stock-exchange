@@ -58,7 +58,7 @@ func (exchange *ExchangeClient) Sell(ticker string, quantity uint64, price uint6
 	sell := &Offer{
 		BrokerId:  exchange.BrokerId,
 		OfferId:   offerId,
-		OfferType: "sell",
+		OfferType: SELL,
 		TTL:       ttl,
 		Ticker:    ticker,
 		Quantity:  quantity,
@@ -83,7 +83,7 @@ func (exchange *ExchangeClient) Buy(ticker string, quantity uint64, price uint64
 	buy := &Offer{
 		BrokerId:  exchange.BrokerId,
 		OfferId:   offerId,
-		OfferType: "buy",
+		OfferType: BUY,
 		TTL:       ttl,
 		Ticker:    ticker,
 		Quantity:  quantity,

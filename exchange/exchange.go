@@ -69,7 +69,7 @@ func (command *Command) Offers(args *Args, reply *[]m.Offer) error {
 		*reply = append(*reply, m.Offer{
 			BrokerId:  uint64(rec.Bins["broker_id"].(int)),
 			OfferId:   uint64(rec.Bins["offer_id"].(int)),
-			OfferType: uint8(rec.Bins["offer_type"].(int)),
+			OfferType: m.OfferType(rec.Bins["offer_type"].(int)),
 			TTL:       uint32(rec.Bins["ttl"].(int)),
 			Ticker:    rec.Bins["ticker"].(string),
 			Quantity:  uint64(rec.Bins["quantity"].(int)),
@@ -82,6 +82,8 @@ func (command *Command) Offers(args *Args, reply *[]m.Offer) error {
 
 func (command *Command) Sell(args *m.Offer, reply *bool) error {
 	// Buy(ticker string, quantity uint64, price uint64, ttl uint32) (uint64, error) {
+
+	// Check if the user has that much inventory
 
 	key, _ := as.NewKey(NAMESPACE, OFFERS, fmt.Sprintf("%v:%v", args.BrokerId, args.OfferId))
 	wpolicy := as.NewWritePolicy(0, 0)

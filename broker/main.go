@@ -1,12 +1,15 @@
 package main
 
 import (
-	// "code.google.com/p/go.net/websocket"
 	"flag"
-	// "fmt"
+	"fmt"
 	. "github.com/aerospike-labs/stock-exchange/models"
 	"log"
 	"runtime"
+)
+
+var (
+	logch chan interface{} // global logging channel
 )
 
 func main() {
@@ -20,64 +23,74 @@ func main() {
 	// parse flags
 	flag.Parse()
 
-	println("I'm a Broker\n\n")
+	// Channel for receiving log messages
+	// We initialize it, then listen for messages
+	logch = make(chan interface{}, 1024)
+	go listenLog()
 
-	c, err := NewClient(*exHost, uint16(*exPort))
+	// Announce we're running
+	logch <- "Broker is running"
+
+	// Exchange client handles communitcation with the exchange
+	ex, err := NewExchangeClient(1, *exHost, uint16(*exPort))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	defer c.Close()
-	c.Listen()
+	// Close the client when the function exits
+	defer ex.Close()
 
-	for i := 0; i < 1024; i++ {
-		req := &Request{
-			Method: "Arith.Multiply",
-			Params: []interface{}{Args{A: i, B: 2}},
-			Id:     uint64(i),
-		}
+	// List for messages from the exchange
+	ex.Listen()
 
-		c.Send(req)
-	}
-
-	i := 0
-	send(c, i)
+	// First transaction is to get a list of stocks in the market
+	ex.Stocks()
 
 	for {
 		select {
-		case message := <-c.messages:
+		case message := <-ex.Messages():
 			switch m := message.(type) {
 			case *Response:
-				log.Printf("Response: %#v \n", m)
-				switch v := m.Result.(type) {
-				case float64:
-					// c.log <- "fuck"
-					log.Printf("    sum: %f\n", v)
-					i += 1
-					send(c, i)
+				switch r := m.Result.(type) {
+				case StockList:
+					// A stock list is received, so we will process it
+					logch <- fmt.Sprintf("Stocks: %#v", r)
+					ex.Offers()
+				case OfferList:
+					// A stock list is received, so we will process it
+					logch <- fmt.Sprintf("Offers: %#v", r)
+					ex.Stocks()
 				default:
-					log.Printf("    unknown value\n")
+					// Unhandled result type.
+					// This should never be reached
+					logch <- fmt.Sprintf("Unhandled: %#v", r)
 				}
 			case *Notification:
-				log.Printf("Notification: %#v \n", m)
+				logch <- m
 			}
-		case <-c.done:
-			log.Printf("\n\nDONE!!!! \n\n")
+		case <-ex.Done():
+			logch <- fmt.Sprintf("\n\nDONE!!!! \n\n")
 			return
 		}
 	}
 }
 
-func send(c *Client, i int) {
-
-	r := &Request{
-		Method: "Arith.Multiply",
-		Params: []interface{}{Args{A: i, B: 2}},
-		Id:     uint64(i),
+func listenLog() {
+	for {
+		select {
+		case msg := <-logch:
+			switch m := msg.(type) {
+			case string:
+				log.Println(m)
+			case *Request:
+				log.Printf("<REQ> %d %s %#v", m.Id[0], m.Method, m.Params)
+			case *Response:
+				log.Printf("<RES> %d %#v %#v", m.Id[0], m.Result, m.Error)
+			case *Notification:
+				log.Printf("<NOT> %s %#v", m.Method, m.Params)
+			}
+		}
 	}
-
-	log.Printf("Request: %#v \n", r)
-	c.Send(r)
 }
 
 func panicOnError(err error) {

@@ -13,9 +13,9 @@ import (
 var (
 	logch   chan interface{} = make(chan interface{}, 1024)
 	verbose bool             = false
-	exHost  string           = "localhost"
+	exHost  string           = "127.0.0.1"
 	exPort  int              = 7000
-	dbHost  string           = "localhost"
+	dbHost  string           = "127.0.0.1"
 	dbPort  int              = 3000
 )
 
@@ -59,7 +59,10 @@ func main() {
 	go processNotifications(ex)
 
 	// Run custom logic
-	run()
+	run(ex)
+
+	// Wait for done to exit
+	<-ex.Done
 }
 
 // Process Notifications
@@ -94,12 +97,12 @@ func processNotifications(ex *ExchangeClient) {
 				// additional processing of the close bid
 
 			}
-
 		}
 	}
 }
 
 // Custom Logic
-func run() {
+func run(ex *ExchangeClient) {
 
+	ex.Offer("GOOG", 100, 1, 5)
 }

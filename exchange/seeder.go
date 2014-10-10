@@ -13,9 +13,9 @@ func seed_db() {
 	println("Sedding stocks...")
 
 	// put stocks
-	key, _ = as.NewKey(NAMESPACE, STOCKS, "GOOGL")
+	key, _ = as.NewKey(NAMESPACE, STOCKS, "GOOG")
 	db.Put(nil, key, as.BinMap{
-		"ticker":   "GOOGL",
+		"ticker":   "GOOG",
 		"quantity": int64(1e9),
 		"price":    int(5200),
 	})
@@ -29,7 +29,7 @@ func seed_db() {
 
 	key, _ = as.NewKey(NAMESPACE, STOCKS, "FB")
 	db.Put(nil, key, as.BinMap{
-		"ticker":   "GOOGL",
+		"ticker":   "FB",
 		"quantity": int64(1e9),
 		"price":    5200,
 	})

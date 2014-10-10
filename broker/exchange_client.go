@@ -102,53 +102,53 @@ func (ex *ExchangeClient) Listen() error {
 
 // Close the connection
 func (ex *ExchangeClient) Close() {
-	ex.ws.Close()
+	if ex.ws != nil {
+		ex.ws.Close()
+	}
 	close(ex.Messages)
 	close(ex.Done)
 }
 
 // Offer a stock to the ex
 // Returns the OfferId for the offer.
-func (ex *ExchangeClient) CreateAuction(ticker string, quantity int, price int, ttl int) (bool, error) {
+func (ex *ExchangeClient) Offer(ticker string, quantity int, price int, ttl int) (int, error) {
 
 	offer := &Offer{
+		Id:       0, // Set to 0, b/c it will be assigned by exchange
 		BrokerId: ex.BrokerId,
-		OfferId:  0,
 		TTL:      ttl,
 		Ticker:   ticker,
 		Quantity: quantity,
 		Price:    price,
 	}
 
-	res, err := ex.call("Command.CreateAuction", offer)
+	res, err := ex.call("Command.Offer", offer)
 	if err != nil {
-		return false, err
+		return 0, err
 	}
 
-	result := true
+	var result int = 0
 	json.Unmarshal(res, &result)
 	return result, nil
 }
 
 // Issue a buy offer
 // Returns the BidId for the big
-func (ex *ExchangeClient) Bid(auctionId int, price int) (bool, error) {
+func (ex *ExchangeClient) Bid(offerId int, price int) (int, error) {
 
-	bid := &Offer{
+	bid := &Bid{
+		Id:       0, // Set to 0, b/c it will be assigned by exchange
 		BrokerId: ex.BrokerId,
-		OfferId:  auctionId,
-		TTL:      0,
-		Ticker:   "",
-		Quantity: 0,
+		OfferId:  offerId,
 		Price:    price,
 	}
 
 	res, err := ex.call("Command.Bid", bid)
 	if err != nil {
-		return false, err
+		return 0, err
 	}
 
-	result := true
+	var result int = 0
 	json.Unmarshal(res, &result)
 	return result, nil
 }

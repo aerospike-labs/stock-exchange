@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	m "github.com/aerospike-labs/stock-exchange/models"
 	as "github.com/aerospike/aerospike-client-go"
 )
@@ -10,15 +11,21 @@ var readPolicy *as.BasePolicy
 var writePolicy *as.WritePolicy
 var scanPolicy *as.ScanPolicy
 
-func findAuction(auctionId int) *m.Offer {
-	auctionKey, _ := as.NewKey(NAMESPACE, AUCTIONS, auctionId)
-	rec, err := db.Get(readPolicy, auctionKey)
+func findOffer(offerId int) *m.Offer {
+
+	offerKeyId := fmt.Sprintf("%s:%d", OFFERS, offerId)
+	offerKey, err := as.NewKey(NAMESPACE, OFFERS, offerKeyId)
+	if err != nil {
+		return nil
+	}
+
+	rec, err := db.Get(readPolicy, offerKey)
 	if err != nil {
 		return nil
 	}
 
 	return &m.Offer{
-		OfferId:  rec.Bins["auction_id"].(int),
+		Id:       rec.Bins["offer_id"].(int),
 		BrokerId: rec.Bins["broker_id"].(int),
 		TTL:      rec.Bins["ttl"].(int),
 		Ticker:   rec.Bins["ticker"].(string),
@@ -27,15 +34,21 @@ func findAuction(auctionId int) *m.Offer {
 	}
 }
 
-func findBid(bidId int) *m.Offer {
-	auctionKey, _ := as.NewKey(NAMESPACE, BIDS, bidId)
-	rec, err := db.Get(readPolicy, auctionKey)
+func findBid(bidId int) *m.Bid {
+
+	bidKeyId := fmt.Sprintf("%s:%d", BIDS, bidId)
+	bidKey, err := as.NewKey(NAMESPACE, BIDS, bidKeyId)
 	if err != nil {
 		return nil
 	}
 
-	return &m.Offer{
-		OfferId:  rec.Bins["bid_id"].(int),
+	rec, err := db.Get(readPolicy, bidKey)
+	if err != nil {
+		return nil
+	}
+
+	return &m.Bid{
+		Id:       rec.Bins["bid_id"].(int),
 		BrokerId: rec.Bins["broker_id"].(int),
 		Price:    rec.Bins["price"].(int),
 	}

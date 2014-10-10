@@ -26,13 +26,13 @@ func storeOffer(offer *Offer) error {
 
 	var err error
 
-	key, err := as.NewKey(NAMESPACE, SET_OFFERS, offer.OfferId)
+	key, err := as.NewKey(NAMESPACE, SET_OFFERS, offer.Id)
 	if err != nil {
 		return err
 	}
 
 	rec := as.BinMap{
-		"offer_id":  offer.OfferId,
+		"offer_id":  offer.Id,
 		"broker_id": offer.BrokerId,
 		"ttl":       offer.TTL,
 		"ticker":    offer.Ticker,
@@ -51,13 +51,13 @@ func storeBid(bid *Bid) error {
 
 	var err error
 
-	key, err := as.NewKey(NAMESPACE, SET_BIDS, bid.BidId)
+	key, err := as.NewKey(NAMESPACE, SET_BIDS, bid.Id)
 	if err != nil {
 		return err
 	}
 
 	rec := as.BinMap{
-		"bid_id":    bid.BidId,
+		"bid_id":    bid.Id,
 		"broker_id": bid.BrokerId,
 		"offer_id":  bid.OfferId,
 		"price":     bid.Price,

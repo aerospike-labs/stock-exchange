@@ -83,6 +83,10 @@ func (command *Command) Offer(r *http.Request, offer *m.Offer, offerId *int) err
 		return err
 	}
 
+	if brokerRec == nil {
+		return fmt.Errorf("Broker not found %d", offer.BrokerId)
+	}
+
 	// fmt.Printf("%#v\n\n", brokerRec)
 
 	if brokerRec.Bins == nil || len(brokerRec.Bins) == 0 {

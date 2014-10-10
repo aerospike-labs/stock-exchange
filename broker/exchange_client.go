@@ -169,9 +169,9 @@ func (ex *ExchangeClient) Stocks() (StockList, error) {
 
 // Issue a buy offer
 // Returns the BidId for the big
-func (ex *ExchangeClient) Auctions() (OfferList, error) {
+func (ex *ExchangeClient) Offers() (OfferList, error) {
 
-	res, err := ex.call("Command.Auctions", nil)
+	res, err := ex.call("Command.Offers", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -200,8 +200,11 @@ func (ex *ExchangeClient) call(method string, params interface{}) (json.RawMessa
 	json.Unmarshal(res.Error, &reserr)
 
 	if reserr != nil {
+		logging.Log(reserr)
+
 		return nil, fmt.Errorf("Command failed: %#v", reserr)
 	}
+	logging.Log(res.Result)
 
 	return res.Result, nil
 }
@@ -235,8 +238,6 @@ func (ex *ExchangeClient) send(req *Request, res *RawResponse) error {
 	}
 
 	json.Unmarshal(hbody, res)
-
-	logging.Log(res)
 
 	return nil
 }

@@ -1,16 +1,17 @@
 package main
 
 import (
+	. "github.com/aerospike-labs/stock-exchange/models"
+
+	"github.com/aerospike-labs/stock-exchange/logging"
+
 	"code.google.com/p/go.net/websocket"
+
+	"bytes"
 	"encoding/json"
 	"fmt"
-	. "github.com/aerospike-labs/stock-exchange/models"
-	// "log"
-	// "net"
-	"bytes"
 	"io/ioutil"
 	"net/http"
-	// "sync/atomic"
 )
 
 var requestSeq int64 = 0
@@ -67,7 +68,7 @@ func (ex *ExchangeClient) Listen() {
 
 		json.Unmarshal([]byte(raw), &notice)
 
-		logch <- &notice
+		logging.Log(&notice)
 		ex.Messages <- &notice
 	}
 }
@@ -193,7 +194,8 @@ func (ex *ExchangeClient) call(method string, params interface{}, id int) (json.
 // List the current stock prices
 func (ex *ExchangeClient) send(req *Request, res *RawResponse) error {
 
-	logch <- req
+	logging.Log(req)
+
 	body, err := json.Marshal(req)
 	if err != nil {
 		return err
@@ -219,6 +221,7 @@ func (ex *ExchangeClient) send(req *Request, res *RawResponse) error {
 
 	json.Unmarshal(hbody, res)
 
-	logch <- res
+	logging.Log(res)
+
 	return nil
 }

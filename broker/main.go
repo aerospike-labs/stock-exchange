@@ -1,16 +1,16 @@
 package main
 
 import (
+	"github.com/aerospike-labs/stock-exchange/logging"
+
 	"flag"
 	"fmt"
-	. "github.com/aerospike-labs/stock-exchange/models"
-	"log"
 	"runtime"
 	// "sync"
 )
 
 var (
-	logch   chan interface{} // global logging channel
+	logch   chan interface{} = make(chan interface{}, 1024)
 	verbose bool             = false
 	exHost  string           = "localhost"
 	exPort  int              = 7000
@@ -26,16 +26,15 @@ func main() {
 	flag.IntVar(&exPort, "port", exPort, "Exchange server port")
 	flag.StringVar(&dbHost, "dbhost", dbHost, "Aerospike server address")
 	flag.IntVar(&dbPort, "dbport", dbPort, "Aerospike server port")
-	flag.BoolVar(&verbose, "verbose", verbose, "Enable verbose logging")
+	flag.BoolVar(&logging.Enabled, "verbose", logging.Enabled, "Enable verbose logging")
 	flag.Parse()
 
-	// Channel for receiving log messages
-	// We initialize it, then listen for messages
-	logch = make(chan interface{}, 1024)
-	go listenLog()
+	// Log listener
+	go logging.Listen()
+	defer logging.Close()
 
 	// Announce we're running
-	logch <- "Broker is running"
+	logging.Log("Broker is running")
 
 	// Resuse error
 	var err error
@@ -53,32 +52,5 @@ func main() {
 
 	for i := 0; i < 1000; i++ {
 		ex.Auctions()
-	}
-}
-
-func listenLog() {
-	for {
-
-		select {
-		case msg := <-logch:
-			if verbose {
-				switch m := msg.(type) {
-				case string:
-					log.Println(m)
-				case *Request:
-					log.Printf("<REQ> %d %s %#v", m.Id, m.Method, m.Params)
-				case *RawRequest:
-					log.Printf("<REQ> %d %s %#v", m.Id, m.Method, m.Params)
-				case *Response:
-					log.Printf("<RES> %d %#v %#v", m.Id, m.Result, m.Error)
-				case *RawResponse:
-					log.Printf("<RES> %d %#v %#v", m.Id, m.Result, m.Error)
-				case *Notification:
-					log.Printf("<NOT> %s %#v", m.Method, m.Params)
-				case *RawNotification:
-					log.Printf("<NOT> %s %#v", m.Method, m.Params)
-				}
-			}
-		}
 	}
 }

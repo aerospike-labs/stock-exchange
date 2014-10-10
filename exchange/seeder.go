@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	as "github.com/aerospike/aerospike-client-go"
 	"os"
 )
@@ -13,9 +14,9 @@ func seed_db() {
 	println("Sedding stocks...")
 
 	// put stocks
-	key, _ = as.NewKey(NAMESPACE, STOCKS, "GOOGL")
+	key, _ = as.NewKey(NAMESPACE, STOCKS, "GOOG")
 	db.Put(nil, key, as.BinMap{
-		"ticker":   "GOOGL",
+		"ticker":   "GOOG",
 		"quantity": int64(1e9),
 		"price":    int(5200),
 	})
@@ -29,7 +30,7 @@ func seed_db() {
 
 	key, _ = as.NewKey(NAMESPACE, STOCKS, "FB")
 	db.Put(nil, key, as.BinMap{
-		"ticker":   "GOOGL",
+		"ticker":   "FB",
 		"quantity": int64(1e9),
 		"price":    5200,
 	})
@@ -57,10 +58,11 @@ func seed_broker(broker_id int, broker_name string) {
 		os.Exit(1)
 	}
 
-	key, _ := as.NewKey(NAMESPACE, BROKERS, broker_id)
+	keyId := fmt.Sprintf("%s:%d", BROKERS, broker_id)
+	key, _ := as.NewKey(NAMESPACE, BROKERS, keyId)
 	db.Delete(nil, key)
 	if err := db.Put(nil, key, as.BinMap{
-		"brokerId":    broker_id,
+		"broker_id":   broker_id,
 		"broker_name": broker_name,
 		"credit":      int64(1e6),
 	}); err != nil {

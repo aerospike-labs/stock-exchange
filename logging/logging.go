@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"encoding/json"
 	. "github.com/aerospike-labs/stock-exchange/models"
 	"log"
 )
@@ -29,15 +30,25 @@ func Listen() {
 			case *Request:
 				log.Printf("<REQ> %d %s %#v", m.Id, m.Method, m.Params)
 			case *RawRequest:
-				log.Printf("<REQ> %d %s %#v", m.Id, m.Method, m.Params)
+				var params interface{}
+				json.Unmarshal(m.Params, &params)
+				log.Printf("<REQ> %d %s %#v", m.Id, m.Method, params)
 			case *Response:
 				log.Printf("<RES> %d %#v %#v", m.Id, m.Result, m.Error)
 			case *RawResponse:
-				log.Printf("<RES> %d %#v %#v", m.Id, m.Result, m.Error)
+				var err interface{}
+				var res interface{}
+
+				json.Unmarshal(m.Error, &err)
+				json.Unmarshal(m.Result, &res)
+
+				log.Printf("<RES> %d %#v %#v", m.Id, res, err)
 			case *Notification:
-				log.Printf("<NOT> %s %#v", m.Method, m.Params)
+				log.Printf("<MSG> %s %#v", m.Method, m.Params)
 			case *RawNotification:
-				log.Printf("<NOT> %s %#v", m.Method, m.Params)
+				var params interface{}
+				json.Unmarshal(m.Params, &params)
+				log.Printf("<MSG> %s %#v", m.Method, params)
 			}
 		}
 	}

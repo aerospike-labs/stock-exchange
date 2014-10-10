@@ -25,7 +25,7 @@ type ExchangeClient struct {
 	rpcUrl   string
 	ws       *websocket.Conn
 	wsUrl    string
-	Messages chan *RawNotification
+	Messages chan *Notification
 	Done     chan bool
 }
 
@@ -34,20 +34,15 @@ func NewExchangeClient(borkerId int, host string, port uint16) (*ExchangeClient,
 	wsUrl := fmt.Sprintf("ws://%s:%d/ws", host, port)
 	rpcUrl := fmt.Sprintf("http://%s:%d/rpc", host, port)
 
-	ws, err := websocket.Dial(wsUrl, "", rpcUrl)
-	if err != nil {
-		return nil, err
-	}
-
 	ex := &ExchangeClient{
 		BrokerId: borkerId,
 		host:     host,
 		port:     port,
 		rpc:      &http.Client{},
 		rpcUrl:   rpcUrl,
-		ws:       ws,
+		ws:       nil,
 		wsUrl:    wsUrl,
-		Messages: make(chan *RawNotification, 1024),
+		Messages: make(chan *Notification, 1024),
 		Done:     make(chan bool),
 	}
 
@@ -55,74 +50,105 @@ func NewExchangeClient(borkerId int, host string, port uint16) (*ExchangeClient,
 }
 
 // Listen for messages
-func (ex *ExchangeClient) Listen() {
+func (ex *ExchangeClient) Listen() error {
+
+	ws, err := websocket.Dial(ex.wsUrl, "", ex.rpcUrl)
+	if err != nil {
+		return err
+	}
+
+	ex.ws = ws
+
 	for {
 		var raw []byte
 
 		if err := websocket.Message.Receive(ex.ws, &raw); err != nil {
 			fmt.Printf("GOT ERROR %#v\n\n", err)
 			ex.Done <- true
-			return
+			return err
 		}
 
-		var notice RawNotification
+		var rawNotice RawNotification
 
-		json.Unmarshal([]byte(raw), &notice)
+		json.Unmarshal([]byte(raw), &rawNotice)
+
+		notice := &Notification{
+			Version: rawNotice.Version,
+			Method:  rawNotice.Method,
+			Params:  nil,
+		}
+
+		switch rawNotice.Method {
+		case "Offer":
+			notice.Params = Offer{}
+			json.Unmarshal(rawNotice.Params, &notice.Params)
+
+		case "Bid":
+			notice.Params = Bid{}
+			json.Unmarshal(rawNotice.Params, &notice.Params)
+
+		case "Close":
+			notice.Params = Bid{}
+			json.Unmarshal(rawNotice.Params, &notice.Params)
+
+		}
 
 		logging.Log(&notice)
-		ex.Messages <- &notice
+		ex.Messages <- notice
 	}
+
+	return nil
 }
 
 // Close the connection
 func (ex *ExchangeClient) Close() {
-	ex.ws.Close()
+	if ex.ws != nil {
+		ex.ws.Close()
+	}
 	close(ex.Messages)
 	close(ex.Done)
 }
 
 // Offer a stock to the ex
 // Returns the OfferId for the offer.
-func (ex *ExchangeClient) CreateAuction(ticker string, quantity int, price int, ttl int) (bool, error) {
+func (ex *ExchangeClient) Offer(ticker string, quantity int, price int, ttl int) (int, error) {
 
 	offer := &Offer{
+		Id:       0, // Set to 0, b/c it will be assigned by exchange
 		BrokerId: ex.BrokerId,
-		OfferId:  0,
 		TTL:      ttl,
 		Ticker:   ticker,
 		Quantity: quantity,
 		Price:    price,
 	}
 
-	res, err := ex.call("Command.CreateAuction", offer)
+	res, err := ex.call("Command.Offer", offer)
 	if err != nil {
-		return false, err
+		return 0, err
 	}
 
-	result := true
+	var result int = 0
 	json.Unmarshal(res, &result)
 	return result, nil
 }
 
 // Issue a buy offer
 // Returns the BidId for the big
-func (ex *ExchangeClient) Bid(auctionId int, price int) (bool, error) {
+func (ex *ExchangeClient) Bid(offerId int, price int) (int, error) {
 
-	bid := &Offer{
+	bid := &Bid{
+		Id:       0, // Set to 0, b/c it will be assigned by exchange
 		BrokerId: ex.BrokerId,
-		OfferId:  auctionId,
-		TTL:      0,
-		Ticker:   "",
-		Quantity: 0,
+		OfferId:  offerId,
 		Price:    price,
 	}
 
 	res, err := ex.call("Command.Bid", bid)
 	if err != nil {
-		return false, err
+		return 0, err
 	}
 
-	result := true
+	var result int = 0
 	json.Unmarshal(res, &result)
 	return result, nil
 }
@@ -143,9 +169,9 @@ func (ex *ExchangeClient) Stocks() (StockList, error) {
 
 // Issue a buy offer
 // Returns the BidId for the big
-func (ex *ExchangeClient) Auctions() (OfferList, error) {
+func (ex *ExchangeClient) Offers() (OfferList, error) {
 
-	res, err := ex.call("Command.Auctions", nil)
+	res, err := ex.call("Command.Offers", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -174,8 +200,11 @@ func (ex *ExchangeClient) call(method string, params interface{}) (json.RawMessa
 	json.Unmarshal(res.Error, &reserr)
 
 	if reserr != nil {
+		logging.Log(reserr)
+
 		return nil, fmt.Errorf("Command failed: %#v", reserr)
 	}
+	logging.Log(res.Result)
 
 	return res.Result, nil
 }
@@ -209,8 +238,6 @@ func (ex *ExchangeClient) send(req *Request, res *RawResponse) error {
 	}
 
 	json.Unmarshal(hbody, res)
-
-	logging.Log(res)
 
 	return nil
 }

@@ -9,11 +9,11 @@ import (
 	"sync/atomic"
 )
 
-// uniqueue Id to assign to Bids
-var bidId int64 = 0
+// sequence for Bid Ids
+var bidIdSeq int64 = 0
 
-// unique Id to assign to auctions
-var auctionId int64 = 0
+// sequence for Offer Ids
+var offerIdSeq int64 = 0
 
 type Command struct{}
 
@@ -21,7 +21,7 @@ type Command struct{}
 const (
 	NAMESPACE = "test"
 	STOCKS    = "stocks"
-	AUCTIONS  = "auctions"
+	OFFERS    = "offers"
 	BIDS      = "bids"
 	BROKERS   = "brokers"
 	LOG       = "log"
@@ -42,20 +42,12 @@ func (command *Command) Stocks(r *http.Request, args *Command, reply *[]m.Stock)
 		})
 	}
 
-	// fmt.Printf("STOCKS: %#v\n\n", *reply)
-
-	broadcast <- &m.Notification{
-		Version: "2.0",
-		Method:  "Oh.Yeah",
-		Params:  []interface{}{"OH YEAH! STOCKS"},
-	}
-
 	return nil
 }
 
-func (command *Command) Auctions(r *http.Request, args *Command, reply *[]m.Offer) error {
+func (command *Command) Offers(r *http.Request, args *Command, reply *[]m.Offer) error {
 
-	recordset, err := db.ScanAll(scanPolicy, NAMESPACE, AUCTIONS)
+	recordset, err := db.ScanAll(scanPolicy, NAMESPACE, OFFERS)
 	if err != nil {
 		return err
 	}
@@ -70,97 +62,136 @@ func (command *Command) Auctions(r *http.Request, args *Command, reply *[]m.Offe
 		})
 	}
 
-	// fmt.Printf("AUCTIONS: %#v\n\n", *reply)
-
-	broadcast <- &m.Notification{
-		Version: "2.0",
-		Method:  "Oh.Yeah",
-		Params:  []interface{}{"OH YEAH! AUCTIONS"},
-	}
-
 	return nil
 }
 
-func (command *Command) CreateAuction(r *http.Request, args *m.Offer, reply *bool) error {
+func (command *Command) Offer(r *http.Request, offer *m.Offer, offerId *int) error {
+
+	var err error
+
+	*offerId = 0
 
 	// Check if the broker has enough inventory
-	brokerKey, _ := as.NewKey(NAMESPACE, BROKERS, int(args.BrokerId))
-	rec, err := db.Get(readPolicy, brokerKey, args.Ticker, args.Ticker+"_os")
+	brokerKeyId := fmt.Sprintf("%s:%d", BROKERS, offer.BrokerId)
+	brokerKey, err := as.NewKey(NAMESPACE, BROKERS, brokerKeyId)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("%#v\n\n", rec)
+	brokerRec, err := db.Get(readPolicy, brokerKey, offer.Ticker, offer.Ticker+"_os")
+	if err != nil {
+		return err
+	}
 
-	if rec.Bins == nil || len(rec.Bins) == 0 {
+	if brokerRec == nil {
+		return fmt.Errorf("Broker not found %d", offer.BrokerId)
+	}
+
+	// fmt.Printf("%#v\n\n", brokerRec)
+
+	if brokerRec.Bins == nil || len(brokerRec.Bins) == 0 {
 		return errors.New("Broker does not have any inventory of the stock")
-	} else if _, exists := rec.Bins[args.Ticker+"_os"]; !exists {
+	} else if _, exists := brokerRec.Bins[offer.Ticker+"_os"]; !exists {
 		// set the outstanding as much as the inventory - bin quantity
-		err := db.Put(writePolicy, brokerKey, as.BinMap{args.Ticker + "_os": int(int(rec.Bins[args.Ticker].(int)) - args.Quantity)})
+		err := db.Put(writePolicy, brokerKey, as.BinMap{offer.Ticker + "_os": int(int(brokerRec.Bins[offer.Ticker].(int)) - offer.Quantity)})
 		if err != nil {
 			return err
 		}
 	} else {
-		rec, err := db.Operate(
+		opRec, err := db.Operate(
 			writePolicy,
 			brokerKey,
-			as.AddOp(as.NewBin(args.Ticker+"_os", -1*int(args.Quantity))),
+			as.AddOp(as.NewBin(offer.Ticker+"_os", -1*int(offer.Quantity))),
 			as.GetOp(),
 		)
 		if err != nil {
 			return err
 		}
 
-		if inventory, exists := rec.Bins[args.Ticker+"_os"]; !exists || int(inventory.(int)) < args.Quantity {
-			db.Add(writePolicy, brokerKey, as.BinMap{args.Ticker + "_os": args.Quantity})
+		if inventory, exists := opRec.Bins[offer.Ticker+"_os"]; !exists || int(inventory.(int)) < offer.Quantity {
+			db.Add(writePolicy, brokerKey, as.BinMap{offer.Ticker + "_os": offer.Quantity})
 			return errors.New("Not enough inventory")
 		}
 	}
 
-	aId := atomic.AddInt64(&auctionId, 1)
+	offer.Id = int(atomic.AddInt64(&offerIdSeq, 1))
 
 	// put the offer up
-	key, _ := as.NewKey(NAMESPACE, AUCTIONS, aId)
-	if err := db.Put(writePolicy, key, as.BinMap{
-		"auction_id": aId,
-		"broker_id":  args.BrokerId,
-		"ticker":     args.Ticker,
-		"quantity":   args.Quantity,
-		"price":      args.Price,
-		"ttl":        args.TTL,
-	}); err != nil {
+	offerKeyId := fmt.Sprintf("%s:%d", OFFERS, offer.Id)
+	offerKey, err := as.NewKey(NAMESPACE, OFFERS, offerKeyId)
+	if err != nil {
 		return err
 	}
 
-	go Auctioner(int(auctionId), args.TTL)
+	offerBins := as.BinMap{
+		"offer_id":  offer.Id,
+		"broker_id": offer.BrokerId,
+		"ticker":    offer.Ticker,
+		"quantity":  offer.Quantity,
+		"price":     offer.Price,
+		"ttl":       offer.TTL,
+	}
+
+	if err = db.Put(writePolicy, offerKey, offerBins); err != nil {
+		return err
+	}
+
+	*offerId = offer.Id
+
+	broadcast <- &m.Notification{
+		Version: "2.0",
+		Method:  "Offer",
+		Params:  offer,
+	}
+
+	go Auctioner(offer.Id, offer.TTL)
 	return nil
 }
 
-func (command *Command) Bid(r *http.Request, args *m.Offer, reply *bool) error {
-	// check if auction exists
-	offerKey, _ := as.NewKey(NAMESPACE, BIDS, args.OfferId)
+func (command *Command) Bid(r *http.Request, bid *m.Bid, bidId *int) error {
+
+	var err error
+
+	offerKeyId := fmt.Sprintf("%s:%d", OFFERS, bid.OfferId)
+	offerKey, err := as.NewKey(NAMESPACE, OFFERS, offerKeyId)
+	if err != nil {
+		return err
+	}
+
 	exists, err := db.Exists(readPolicy, offerKey)
-	bidChan := auctionMap.Get(auctionId)
+	bidChan := auctionMap.Get(int(offerIdSeq))
 	if err != nil || !exists || bidChan == nil {
 		errors.New("Auction has finished.")
 	}
 
-	bId := atomic.AddInt64(&bidId, 1)
-	bidKey, _ := as.NewKey(NAMESPACE, BIDS, bId)
-	if err := db.Put(writePolicy, bidKey, as.BinMap{
-		"bid_id":     bId,
-		"auction_id": args.OfferId,
-		"broker_id":  args.BrokerId,
-		"price":      args.Price,
-	}); err != nil {
+	bid.Id = int(atomic.AddInt64(&bidIdSeq, 1))
+
+	bidKeyId := fmt.Sprintf("%s:%d", BIDS, bid.Id)
+	bidKey, err := as.NewKey(NAMESPACE, BIDS, bidKeyId)
+	if err != nil {
 		return err
 	}
 
-	bidChan <- args
-	broadcast <- &m.Broadcast{
-		Type:    m.AUCTION_ENDED,
-		Auction: *findAuction(args.OfferId),
-		Bid:     *findBid(int(bId)),
+	bidBins := as.BinMap{
+		"bid_id":     bid.Id,
+		"auction_id": bid.OfferId,
+		"broker_id":  bid.BrokerId,
+		"price":      bid.Price,
 	}
+
+	if err := db.Put(writePolicy, bidKey, bidBins); err != nil {
+		return err
+	}
+
+	*bidId = bid.Id
+
+	bidChan <- bid
+
+	broadcast <- &m.Notification{
+		Version: "2.0",
+		Method:  "Bid",
+		Params:  bid,
+	}
+
 	return nil
 }

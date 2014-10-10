@@ -4,16 +4,6 @@ import (
 	"encoding/json"
 )
 
-const (
-	T_OFFER = iota
-	T_BROKEROFFER
-	T_STOCKLIST
-	T_OFFERLIST
-	T_TRANSACTION
-	T_STOCK
-	T_ID
-)
-
 type Stock struct {
 	Ticker   string
 	Quantity int
@@ -23,7 +13,7 @@ type Stock struct {
 type StockList []Stock
 
 type Offer struct {
-	OfferId  int
+	Id       int
 	BrokerId int
 	TTL      int
 	Ticker   string
@@ -33,32 +23,14 @@ type Offer struct {
 
 type OfferList []Offer
 
-type BrokerOffer struct {
+type Bid struct {
+	Id       int
 	BrokerId int
 	OfferId  int
-}
-
-type Transaction struct {
-	Buyer    BrokerOffer
-	Seller   BrokerOffer
-	Ticker   string
-	Quantity int
 	Price    int
 }
 
-type BroadCastType int
-
-const (
-	AUCTION_BEGIN BroadCastType = iota
-	AUCTION_ENDED
-	BID_HAPPENNED
-)
-
-type Broadcast struct {
-	Type    BroadCastType
-	Auction Offer
-	Bid     Offer
-}
+type BidList []Bid
 
 type Request struct {
 	Version string        `json:"jsonrpc"`

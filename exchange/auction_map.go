@@ -9,28 +9,28 @@ import (
 var auctionMap AuctionMap
 
 type AuctionMap struct {
-	auctionMap map[int64]chan *m.Offer
+	auctionMap map[int]chan *m.Bid
 	rwmutex    sync.RWMutex
 }
 
 func NewAuctionMap() *AuctionMap {
 	return &AuctionMap{
-		auctionMap: map[int64]chan *m.Offer{},
+		auctionMap: map[int]chan *m.Bid{},
 	}
 }
 
 // Add creates and adds an auction with a bid channel to receive the bids
-func (am *AuctionMap) Add(auctionId int64) chan *m.Offer {
+func (am *AuctionMap) Add(auctionId int) chan *m.Bid {
 	am.rwmutex.Lock()
 	defer am.rwmutex.Unlock()
 
-	ch := make(chan *m.Offer, 64)
+	ch := make(chan *m.Bid, 64)
 	am.auctionMap[auctionId] = ch
 	return ch
 }
 
 // Get finds a bid channel in the map and returns it
-func (am *AuctionMap) Get(auctionId int64) chan *m.Offer {
+func (am *AuctionMap) Get(auctionId int) chan *m.Bid {
 	am.rwmutex.RLock()
 	defer am.rwmutex.Unlock()
 
@@ -38,7 +38,7 @@ func (am *AuctionMap) Get(auctionId int64) chan *m.Offer {
 }
 
 // Remove removes the auction and its bid channel from the map
-func (am *AuctionMap) Remove(auctionId int64) {
+func (am *AuctionMap) Remove(auctionId int) {
 	am.rwmutex.Lock()
 	defer am.rwmutex.Unlock()
 

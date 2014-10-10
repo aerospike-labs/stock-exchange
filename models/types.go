@@ -25,7 +25,7 @@ type StockList []Stock
 type Offer struct {
 	OfferId  int
 	BrokerId int
-	TTL      uint32
+	TTL      int
 	Ticker   string
 	Quantity int
 	Price    int
@@ -44,6 +44,20 @@ type Transaction struct {
 	Ticker   string
 	Quantity int
 	Price    int
+}
+
+type BroadCastType int
+
+const (
+	AUCTION_BEGIN BroadCastType = iota
+	AUCTION_ENDED
+	BID_HAPPENNED
+)
+
+type Broadcast struct {
+	Type    BroadCastType
+	Auction Offer
+	Bid     Offer
 }
 
 type Request struct {

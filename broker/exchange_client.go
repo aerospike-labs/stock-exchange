@@ -83,7 +83,7 @@ func (ex *ExchangeClient) Close() {
 
 // Offer a stock to the ex
 // Returns the OfferId for the offer.
-func (ex *ExchangeClient) CreateAuction(ticker string, quantity int, price int, ttl uint32) (bool, error) {
+func (ex *ExchangeClient) CreateAuction(ticker string, quantity int, price int, ttl int) (bool, error) {
 
 	offer := &Offer{
 		BrokerId: ex.BrokerId,

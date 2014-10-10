@@ -4,13 +4,6 @@ import (
 	"encoding/json"
 )
 
-type OfferType uint8
-
-const (
-	BUY OfferType = iota
-	SELL
-)
-
 const (
 	T_OFFER = iota
 	T_BROKEROFFER

@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/aerospike-labs/stock-exchange/logging"
+	. "github.com/aerospike-labs/stock-exchange/models"
 
 	"flag"
 	"fmt"
@@ -39,18 +40,66 @@ func main() {
 	// Resuse error
 	var err error
 
+	// Connect to database
+	connectToDatabase(dbHost, dbPort)
+
+	// Connect to exchange
 	ex, err := NewExchangeClient(1, exHost, uint16(exPort))
 	if err != nil {
 		fmt.Printf("err: %#v\n", err.Error())
 	}
 
-	// Close this on exit
+	// Close connections to the exchange
 	defer ex.Close()
 
-	// Listen for notifications
+	// Open connections to the exchange
 	go ex.Listen()
 
-	for i := 0; i < 1000; i++ {
-		ex.Auctions()
+	// Process notifications
+	go processNotifications(ex)
+
+	// Run custom logic
+	run()
+}
+
+// Process Notifications
+func processNotifications(ex *ExchangeClient) {
+	for {
+		select {
+		case message := <-ex.Messages:
+			switch message.Method {
+			case "Offer":
+
+				offer := message.Params.(Offer)
+
+				// store the offer
+				storeOffer(&offer)
+
+				// additional processing of the offer
+
+			case "Bid":
+				bid := message.Params.(Bid)
+
+				// store the bid
+				storeBid(&bid)
+
+				// additional processing of the bid
+
+			case "Close":
+				bid := message.Params.(Bid)
+
+				// store the winning bid
+				storeWinningBid(&bid)
+
+				// additional processing of the close bid
+
+			}
+
+		}
 	}
+}
+
+// Custom Logic
+func run() {
+
 }

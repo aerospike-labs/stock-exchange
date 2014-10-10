@@ -25,7 +25,7 @@ type ExchangeClient struct {
 	rpcUrl   string
 	ws       *websocket.Conn
 	wsUrl    string
-	Messages chan *RawNotification
+	Messages chan *Notification
 	Done     chan bool
 }
 
@@ -34,20 +34,15 @@ func NewExchangeClient(borkerId int, host string, port uint16) (*ExchangeClient,
 	wsUrl := fmt.Sprintf("ws://%s:%d/ws", host, port)
 	rpcUrl := fmt.Sprintf("http://%s:%d/rpc", host, port)
 
-	ws, err := websocket.Dial(wsUrl, "", rpcUrl)
-	if err != nil {
-		return nil, err
-	}
-
 	ex := &ExchangeClient{
 		BrokerId: borkerId,
 		host:     host,
 		port:     port,
 		rpc:      &http.Client{},
 		rpcUrl:   rpcUrl,
-		ws:       ws,
+		ws:       nil,
 		wsUrl:    wsUrl,
-		Messages: make(chan *RawNotification, 1024),
+		Messages: make(chan *Notification, 1024),
 		Done:     make(chan bool),
 	}
 
@@ -55,23 +50,54 @@ func NewExchangeClient(borkerId int, host string, port uint16) (*ExchangeClient,
 }
 
 // Listen for messages
-func (ex *ExchangeClient) Listen() {
+func (ex *ExchangeClient) Listen() error {
+
+	ws, err := websocket.Dial(ex.wsUrl, "", ex.rpcUrl)
+	if err != nil {
+		return err
+	}
+
+	ex.ws = ws
+
 	for {
 		var raw []byte
 
 		if err := websocket.Message.Receive(ex.ws, &raw); err != nil {
 			fmt.Printf("GOT ERROR %#v\n\n", err)
 			ex.Done <- true
-			return
+			return err
 		}
 
-		var notice RawNotification
+		var rawNotice RawNotification
 
-		json.Unmarshal([]byte(raw), &notice)
+		json.Unmarshal([]byte(raw), &rawNotice)
+
+		notice := &Notification{
+			Version: rawNotice.Version,
+			Method:  rawNotice.Method,
+			Params:  nil,
+		}
+
+		switch rawNotice.Method {
+		case "Offer":
+			notice.Params = Offer{}
+			json.Unmarshal(rawNotice.Params, &notice.Params)
+
+		case "Bid":
+			notice.Params = Bid{}
+			json.Unmarshal(rawNotice.Params, &notice.Params)
+
+		case "Close":
+			notice.Params = Bid{}
+			json.Unmarshal(rawNotice.Params, &notice.Params)
+
+		}
 
 		logging.Log(&notice)
-		ex.Messages <- &notice
+		ex.Messages <- notice
 	}
+
+	return nil
 }
 
 // Close the connection

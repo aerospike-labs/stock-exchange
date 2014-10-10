@@ -1,16 +1,19 @@
 package main
 
 import (
-	"code.google.com/p/go.net/websocket"
+	// "code.google.com/p/go.net/websocket"
 	"errors"
 	"flag"
 	"fmt"
 	m "github.com/aerospike-labs/stock-exchange/models"
 	as "github.com/aerospike/aerospike-client-go"
+	rpc "github.com/gorilla/rpc/v2"
+	"github.com/gorilla/rpc/v2/json"
 	"net/http"
-	_ "net/http/pprof"
-	"net/rpc"
-	"net/rpc/jsonrpc"
+	// _ "net/http/pprof"
+	// "net/rpc"
+	// "net/rpc/jsonrpc"
+	"log"
 	"os"
 	"runtime"
 	"sync/atomic"
@@ -37,7 +40,7 @@ type Command struct{}
 
 var counter int = 0
 
-func (command *Command) Stocks(args *Command, reply *[]m.Stock) error {
+func (command *Command) Stocks(r *http.Request, args *Command, reply *[]m.Stock) error {
 
 	recordset, err := db.ScanAll(scanPolicy, NAMESPACE, STOCKS)
 	if err != nil {
@@ -47,15 +50,23 @@ func (command *Command) Stocks(args *Command, reply *[]m.Stock) error {
 	for rec := range recordset.Records {
 		*reply = append(*reply, m.Stock{
 			Ticker:   rec.Bins["ticker"].(string),
-			Quantity: uint64(rec.Bins["quantity"].(int)),
-			Price:    uint64(rec.Bins["price"].(int)),
+			Quantity: int(rec.Bins["quantity"].(int)),
+			Price:    int(rec.Bins["price"].(int)),
 		})
+	}
+
+	// fmt.Printf("STOCKS: %#v\n\n", *reply)
+
+	broadcast <- &m.Notification{
+		Version: "2.0",
+		Method:  "Fuck.Yeah",
+		Params:  []interface{}{"FUCK YEAH! STOCKS"},
 	}
 
 	return nil
 }
 
-func (command *Command) Auctions(args *Command, reply *[]m.Offer) error {
+func (command *Command) Auctions(r *http.Request, args *Command, reply *[]m.Offer) error {
 
 	recordset, err := db.ScanAll(scanPolicy, NAMESPACE, AUCTIONS)
 	if err != nil {
@@ -64,32 +75,43 @@ func (command *Command) Auctions(args *Command, reply *[]m.Offer) error {
 
 	for rec := range recordset.Records {
 		*reply = append(*reply, m.Offer{
-			BrokerId: uint64(rec.Bins["broker_id"].(int)),
+			BrokerId: int(rec.Bins["broker_id"].(int)),
 			TTL:      uint32(rec.Bins["ttl"].(int)),
 			Ticker:   rec.Bins["ticker"].(string),
-			Quantity: uint64(rec.Bins["quantity"].(int)),
-			Price:    uint64(rec.Bins["price"].(int)),
+			Quantity: int(rec.Bins["quantity"].(int)),
+			Price:    int(rec.Bins["price"].(int)),
 		})
+	}
+
+	// fmt.Printf("AUCTIONS: %#v\n\n", *reply)
+
+	broadcast <- &m.Notification{
+		Version: "2.0",
+		Method:  "Fuck.Yeah",
+		Params:  []interface{}{"FUCK YEAH! AUCTIONS"},
 	}
 
 	return nil
 }
 
-var auctionId uint64 = 0
+var auctionId int64 = 0
 
-func (command *Command) CreateAuction(args *m.Offer, reply *bool) error {
+func (command *Command) CreateAuction(r *http.Request, args *m.Offer, reply *bool) error {
+
 	// Check if the broker has enough inventory
-	brokerKey, _ := as.NewKey(NAMESPACE, BROKERS, args.BrokerId)
+	brokerKey, _ := as.NewKey(NAMESPACE, BROKERS, int(args.BrokerId))
 	rec, err := db.Get(readPolicy, brokerKey, args.Ticker, args.Ticker+"_os")
 	if err != nil {
 		return err
 	}
 
-	if len(rec.Bins) == 0 {
+	fmt.Printf("%#v\n\n", rec)
+
+	if rec.Bins == nil || len(rec.Bins) == 0 {
 		return errors.New("Broker does not have any inventory of the stock")
 	} else if _, exists := rec.Bins[args.Ticker+"_os"]; !exists {
 		// set the outstanding as much as the inventory - bin quantity
-		err := db.Put(writePolicy, brokerKey, as.BinMap{args.Ticker + "_os": int(uint64(rec.Bins[args.Ticker].(int)) - args.Quantity)})
+		err := db.Put(writePolicy, brokerKey, as.BinMap{args.Ticker + "_os": int(int(rec.Bins[args.Ticker].(int)) - args.Quantity)})
 		if err != nil {
 			return err
 		}
@@ -104,16 +126,16 @@ func (command *Command) CreateAuction(args *m.Offer, reply *bool) error {
 			return err
 		}
 
-		if inventory, exists := rec.Bins[args.Ticker+"_os"]; !exists || uint64(inventory.(int)) < args.Quantity {
+		if inventory, exists := rec.Bins[args.Ticker+"_os"]; !exists || int(inventory.(int)) < args.Quantity {
 			db.Add(writePolicy, brokerKey, as.BinMap{args.Ticker + "_os": args.Quantity})
 			return errors.New("Not enough inventory")
 		}
 	}
 
-	aId := atomic.AddUint64(&auctionId, 1)
+	aId := atomic.AddInt64(&auctionId, 1)
 
 	// put the offer up
-	key, _ := as.NewKey(NAMESPACE, AUCTIONS, fmt.Sprintf("%v:%v", args.BrokerId, args.Ticker))
+	key, _ := as.NewKey(NAMESPACE, AUCTIONS, aId)
 	if err := db.Put(writePolicy, key, as.BinMap{
 		"auction_id": aId,
 		"broker_id":  args.BrokerId,
@@ -125,14 +147,14 @@ func (command *Command) CreateAuction(args *m.Offer, reply *bool) error {
 		return err
 	}
 
-	go Auctioner(auctionId, args.TTL)
+	go Auctioner(int(auctionId), args.TTL)
 	return nil
 }
 
 var auctionMap AuctionMap
 
-func Auctioner(auctionId uint64, TTL uint32) {
-	bidderChan := auctionMap.Add(auctionId)
+func Auctioner(auctionId int, TTL uint32) {
+	bidderChan := auctionMap.Add(int64(auctionId))
 
 	var bestBid *m.Offer
 	for {
@@ -148,9 +170,9 @@ func Auctioner(auctionId uint64, TTL uint32) {
 
 }
 
-var bidId uint64 = 0
+var bidId int64 = 0
 
-func (command *Command) Bid(args *m.Offer, reply *bool) error {
+func (command *Command) Bid(r *http.Request, args *m.Offer, reply *bool) error {
 	// check if auction exists
 	offerKey, _ := as.NewKey(NAMESPACE, BIDS, args.OfferId)
 	exists, err := db.Exists(readPolicy, offerKey)
@@ -159,7 +181,7 @@ func (command *Command) Bid(args *m.Offer, reply *bool) error {
 		errors.New("Auction has finished.")
 	}
 
-	bId := atomic.AddUint64(&bidId, 1)
+	bId := atomic.AddInt64(&bidId, 1)
 	bidKey, _ := as.NewKey(NAMESPACE, BIDS, bId)
 	if err := db.Put(writePolicy, bidKey, as.BinMap{
 		"bid_id":     bId,
@@ -174,8 +196,8 @@ func (command *Command) Bid(args *m.Offer, reply *bool) error {
 	return nil
 }
 
-func CloseAuction(auctionId uint64, bid *m.Offer) {
-	auctionMap.Remove(auctionId)
+func CloseAuction(auctionId int, bid *m.Offer) {
+	auctionMap.Remove(int64(auctionId))
 
 	// Check if the broker has enough inventory
 	auctionKey, _ := as.NewKey(NAMESPACE, AUCTIONS, auctionId)
@@ -209,6 +231,7 @@ func main() {
 	var host = flag.String("h", "127.0.0.1", "Aerospike server seed hostnames or IP addresses")
 	var port = flag.Int("p", 3000, "Aerospike server seed hostname or IP address port number.")
 
+	listen := fmt.Sprintf("%s:%d", *host, 8080)
 	var err error
 	// connect to the db
 	if db, err = as.NewClient(*host, *port); err != nil {
@@ -230,15 +253,41 @@ func main() {
 	readPolicy = as.NewPolicy()
 	scanPolicy = as.NewScanPolicy()
 
-	rpc.Register(new(Command))
+	// ---
+	//
+	// START SERVER
+	//
+	// ---
 
-	http.Handle("/rpc", websocket.Handler(serve))
+	// Use this for broadcasting messages to all brokers
+	broadcaster := NewBroadcaster(broadcast)
+	go broadcaster.Listen()
 
-	println("Exchange up and waiting!")
+	// services
+	command := new(Command)
 
-	http.ListenAndServe(":8080", nil)
-}
+	// export services
+	rpcServer := rpc.NewServer()
+	rpcServer.RegisterCodec(json.NewCodec(), "application/json")
+	rpcServer.RegisterService(command, "")
 
-func serve(ws *websocket.Conn) {
-	jsonrpc.ServeConn(ws)
+	// routes
+	httpRouter := http.NewServeMux()
+	httpRouter.Handle("/rpc", rpcServer)
+	httpRouter.HandleFunc("/ws", broadcaster.Serve)
+
+	// server
+	httpServer := &http.Server{
+		Addr:           listen,
+		Handler:        httpRouter,
+		ReadTimeout:    1 * time.Second,
+		WriteTimeout:   1 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+
+	// start
+	log.Printf("Starting HTTP on http://%s\n", listen)
+	fmt.Fprintf(os.Stdout, "Starting HTTP on http://%s\n", listen)
+
+	log.Panic(httpServer.ListenAndServe())
 }

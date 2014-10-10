@@ -6,17 +6,17 @@ import (
 )
 
 type AuctionMap struct {
-	auctionMap map[uint64]chan *m.Offer
+	auctionMap map[int64]chan *m.Offer
 	rwmutex    sync.RWMutex
 }
 
 func NewAuctionMap() *AuctionMap {
 	return &AuctionMap{
-		auctionMap: map[uint64]chan *m.Offer{},
+		auctionMap: map[int64]chan *m.Offer{},
 	}
 }
 
-func (am *AuctionMap) Add(auctionId uint64) chan *m.Offer {
+func (am *AuctionMap) Add(auctionId int64) chan *m.Offer {
 	am.rwmutex.Lock()
 	defer am.rwmutex.Unlock()
 
@@ -25,14 +25,14 @@ func (am *AuctionMap) Add(auctionId uint64) chan *m.Offer {
 	return ch
 }
 
-func (am *AuctionMap) Get(auctionId uint64) chan *m.Offer {
+func (am *AuctionMap) Get(auctionId int64) chan *m.Offer {
 	am.rwmutex.RLock()
 	defer am.rwmutex.Unlock()
 
 	return am.auctionMap[auctionId]
 }
 
-func (am *AuctionMap) Remove(auctionId uint64) {
+func (am *AuctionMap) Remove(auctionId int64) {
 	am.rwmutex.Lock()
 	defer am.rwmutex.Unlock()
 

@@ -6,6 +6,7 @@ import (
 	. "github.com/aerospike-labs/stock-exchange/models"
 	"log"
 	"runtime"
+	// "sync"
 )
 
 var (
@@ -31,78 +32,52 @@ func main() {
 	// Announce we're running
 	logch <- "Broker is running"
 
-	// Exchange client handles communitcation with the exchange
+	// Resuse error
+	var err error
+
 	ex, err := NewExchangeClient(1, *exHost, uint16(*exPort))
 	if err != nil {
-		log.Fatal(err)
+		fmt.Printf("err: %#v\n", err.Error())
 	}
 
-	// Close the client when the function exits
+	// Close this on exit
 	defer ex.Close()
 
-	// List for messages from the exchange
-	ex.Listen()
+	// Listen for notifications
+	go ex.Listen()
 
-	// First transaction is to get a list of stocks in the market
-	go ex.Stocks()
-
-	counter := 0
-
-	for {
-		select {
-		case message := <-ex.Messages():
-			switch m := message.(type) {
-			case *Response:
-				counter += 1
-				switch r := m.Result.(type) {
-				case StockList:
-					// A stock list is received, so we will process it
-					logch <- fmt.Sprintf("Stocks: %#v", r)
-					ex.Offers()
-				case OfferList:
-					// A stock list is received, so we will process it
-					logch <- fmt.Sprintf("Offers: %#v", r)
-					ex.Stocks()
-				default:
-					// Unhandled result type.
-					// This should never be reached
-					logch <- fmt.Sprintf("Unhandled: %#v", r)
-				}
-				if counter == 12000 {
-					fmt.Printf("count: %d\n", counter)
-					return
-				}
-			case *Notification:
-				logch <- m
-			}
-		case <-ex.Done():
-			logch <- fmt.Sprintf("\n\nDONE!!!! \n\n")
-
-			return
+	for i := 0; i < 1000; i++ {
+		a, err := ex.Auctions()
+		if err != nil {
+			fmt.Printf("err: %#v\n", err.Error())
+		} else {
+			fmt.Printf("res: %#v\n", a)
 		}
 	}
-
 }
 
 func listenLog() {
 	for {
 
 		select {
-		case <-logch:
+		case msg := <-logch:
+			switch m := msg.(type) {
+			case string:
+				log.Println(m)
+			case *Request:
+				log.Printf("<REQ> %d %s %#v", m.Id, m.Method, m.Params)
+			case *RawRequest:
+				log.Printf("<REQ> %d %s %#v", m.Id, m.Method, m.Params)
+			case *Response:
+				log.Printf("<RES> %d %#v %#v", m.Id, m.Result, m.Error)
+			case *RawResponse:
+				log.Printf("<RES> %d %#v %#v", m.Id, m.Result, m.Error)
+			case *Notification:
+				log.Printf("<NOT> %s %#v", m.Method, m.Params)
+			case *RawNotification:
+				log.Printf("<NOT> %s %#v", m.Method, m.Params)
+			}
 		}
-		// select {
-		// case msg := <-logch:
-		// 	switch m := msg.(type) {
-		// 	case string:
-		// 		log.Println(m)
-		// 	case *Request:
-		// 		log.Printf("<REQ> %d %s %#v", m.Id[0], m.Method, m.Params)
-		// 	case *Response:
-		// 		log.Printf("<RES> %d %#v %#v", m.Id[0], m.Result, m.Error)
-		// 	case *Notification:
-		// 		log.Printf("<NOT> %s %#v", m.Method, m.Params)
-		// 	}
-		// }
 	}
 }
 

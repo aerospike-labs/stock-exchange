@@ -33,17 +33,11 @@ type Offer struct {
 
 type OfferList []Offer
 
-type BrokerOffer struct {
-	BrokerId int
-	OfferId  int
-}
-
-type Transaction struct {
-	Buyer    BrokerOffer
-	Seller   BrokerOffer
-	Ticker   string
-	Quantity int
-	Price    int
+type Bid struct {
+	BidId
+	BrokerId
+	OfferId
+	Price
 }
 
 type BroadCastType int

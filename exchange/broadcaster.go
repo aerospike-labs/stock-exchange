@@ -32,7 +32,7 @@ func (b *Broadcaster) Listen() error {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("SENDING SOCKET MESSAGE %#v\n", message)
+			// fmt.Printf("SENDING SOCKET MESSAGE %#v\n", message)
 			b.Send(message)
 		}
 	}

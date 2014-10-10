@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sync/atomic"
 )
 
 var requestSeq int64 = 0
@@ -84,8 +85,6 @@ func (ex *ExchangeClient) Close() {
 // Returns the OfferId for the offer.
 func (ex *ExchangeClient) CreateAuction(ticker string, quantity int, price int, ttl uint32) (bool, error) {
 
-	reqId := 1
-
 	offer := &Offer{
 		BrokerId: ex.BrokerId,
 		OfferId:  0,
@@ -95,7 +94,7 @@ func (ex *ExchangeClient) CreateAuction(ticker string, quantity int, price int, 
 		Price:    price,
 	}
 
-	res, err := ex.call("Command.CreateAuction", offer, int(reqId))
+	res, err := ex.call("Command.CreateAuction", offer)
 	if err != nil {
 		return false, err
 	}
@@ -109,8 +108,6 @@ func (ex *ExchangeClient) CreateAuction(ticker string, quantity int, price int, 
 // Returns the BidId for the big
 func (ex *ExchangeClient) Bid(auctionId int, price int) (bool, error) {
 
-	reqId := 1
-
 	bid := &Offer{
 		BrokerId: ex.BrokerId,
 		OfferId:  auctionId,
@@ -120,7 +117,7 @@ func (ex *ExchangeClient) Bid(auctionId int, price int) (bool, error) {
 		Price:    price,
 	}
 
-	res, err := ex.call("Command.Bid", bid, int(reqId))
+	res, err := ex.call("Command.Bid", bid)
 	if err != nil {
 		return false, err
 	}
@@ -134,11 +131,7 @@ func (ex *ExchangeClient) Bid(auctionId int, price int) (bool, error) {
 // Returns the BidId for the big
 func (ex *ExchangeClient) Stocks() (StockList, error) {
 
-	reqId := 1
-
-	// var bid interface{} = nil
-
-	res, err := ex.call("Command.Stocks", nil, int(reqId))
+	res, err := ex.call("Command.Stocks", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -152,11 +145,7 @@ func (ex *ExchangeClient) Stocks() (StockList, error) {
 // Returns the BidId for the big
 func (ex *ExchangeClient) Auctions() (OfferList, error) {
 
-	reqId := 1
-
-	// var bid interface{} = nil
-
-	res, err := ex.call("Command.Auctions", nil, int(reqId))
+	res, err := ex.call("Command.Auctions", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -167,13 +156,13 @@ func (ex *ExchangeClient) Auctions() (OfferList, error) {
 }
 
 // List the current stock prices
-func (ex *ExchangeClient) call(method string, params interface{}, id int) (json.RawMessage, error) {
+func (ex *ExchangeClient) call(method string, params interface{}) (json.RawMessage, error) {
 
 	req := Request{
 		Version: "2.0",
 		Method:  method,
 		Params:  []interface{}{params},
-		Id:      id,
+		Id:      int(atomic.AddInt64(&requestSeq, 1)),
 	}
 
 	res := RawResponse{}

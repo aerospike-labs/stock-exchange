@@ -59,8 +59,8 @@ func (command *Command) Stocks(r *http.Request, args *Command, reply *[]m.Stock)
 
 	broadcast <- &m.Notification{
 		Version: "2.0",
-		Method:  "Fuck.Yeah",
-		Params:  []interface{}{"FUCK YEAH! STOCKS"},
+		Method:  "Oh.Yeah",
+		Params:  []interface{}{"OH YEAH! STOCKS"},
 	}
 
 	return nil
@@ -87,8 +87,8 @@ func (command *Command) Auctions(r *http.Request, args *Command, reply *[]m.Offe
 
 	broadcast <- &m.Notification{
 		Version: "2.0",
-		Method:  "Fuck.Yeah",
-		Params:  []interface{}{"FUCK YEAH! AUCTIONS"},
+		Method:  "Oh.Yeah",
+		Params:  []interface{}{"OH YEAH! AUCTIONS"},
 	}
 
 	return nil

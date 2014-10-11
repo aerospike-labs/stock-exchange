@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 )
 
+// Broker is a person who can offer stock for sale or place bids on offers
 type Broker struct {
 	Id     int
 	Name   string
@@ -18,6 +19,9 @@ type Stock struct {
 
 type StockList []Stock
 
+// A parcel of stock to be sold
+// This probably should be called parcel, but I don't
+// want to change all the code now.
 type Offer struct {
 	Id       int
 	BrokerId int
@@ -29,6 +33,7 @@ type Offer struct {
 
 type OfferList []Offer
 
+// An offer to buy a parcel of stock.
 type Bid struct {
 	Id       int
 	BrokerId int
@@ -38,6 +43,7 @@ type Bid struct {
 
 type BidList []Bid
 
+// Request to be used for composing
 type Request struct {
 	Version string        `json:"jsonrpc"`
 	Method  string        `json:"method"`
@@ -45,6 +51,7 @@ type Request struct {
 	Id      int           `json:"id"`
 }
 
+// Raw allows us to partially unmarshal the request
 type RawRequest struct {
 	Version string          `json:"jsonrpc"`
 	Method  string          `json:"method"`
@@ -52,12 +59,15 @@ type RawRequest struct {
 	Id      int             `json:"id"`
 }
 
+// Response to be used for composing
 type Response struct {
 	Version string      `json:"jsonrpc"`
 	Result  interface{} `json:"result"`
 	Error   interface{} `json:"error"`
 	Id      int         `json:"id"`
 }
+
+// Raw allows us to partially unmarshal the response
 type RawResponse struct {
 	Version string          `json:"jsonrpc"`
 	Result  json.RawMessage `json:"result"`
@@ -65,12 +75,14 @@ type RawResponse struct {
 	Id      int             `json:"id"`
 }
 
+// Notification to be used for composing
 type Notification struct {
 	Version string      `json:"jsonrpc"`
 	Method  string      `json:"method"`
 	Params  interface{} `json:"params"`
 }
 
+// Raw allows us to partially unmarshal the notification
 type RawNotification struct {
 	Version string          `json:"jsonrpc"`
 	Method  string          `json:"method"`

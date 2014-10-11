@@ -24,6 +24,7 @@ var (
 	scanPolicy  *as.ScanPolicy
 )
 
+// Increment a bin, being used as a sequence generator.
 func nextSeq(seq string) (int, error) {
 
 	keyId := fmt.Sprintf("%s:%s", SEQUENCES, seq)

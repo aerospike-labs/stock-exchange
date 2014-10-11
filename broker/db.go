@@ -23,6 +23,7 @@ var writePolicy *as.WritePolicy
 var scanPolicy *as.ScanPolicy
 var queryPolicy *as.QueryPolicy
 
+// Store an offer in the database
 func storeOffer(offer *Offer) error {
 
 	var err error
@@ -48,6 +49,7 @@ func storeOffer(offer *Offer) error {
 	return nil
 }
 
+// Store a bid in the database
 func storeBid(bid *Bid) error {
 
 	var err error
@@ -159,6 +161,7 @@ func storeWinningBid(bid *Bid) error {
 	return nil
 }
 
+// Connect to the database, and initial setup
 func connectToDatabase(host string, port int) {
 	var err error
 

@@ -16,6 +16,7 @@ var (
 	port   int    = 7000
 )
 
+// A simple command-line tool for making calls into the exchange
 func main() {
 
 	flag.IntVar(&broker, "broker", broker, "Broker Id")

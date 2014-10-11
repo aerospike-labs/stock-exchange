@@ -44,6 +44,7 @@ L:
 	}
 }
 
+// When the auction has completed, perform the following logic.
 func CloseAuction(offerId int, bid *m.Bid) {
 	auctionMap.Remove(offerId)
 

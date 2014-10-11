@@ -17,6 +17,7 @@ import (
 
 var requestSeq int64 = 0
 
+// Client for the exchange service
 type ExchangeClient struct {
 	BrokerId int
 	host     string
@@ -49,7 +50,7 @@ func NewExchangeClient(borkerId int, host string, port uint16) (*ExchangeClient,
 	return ex, nil
 }
 
-// Listen for messages
+// Listen for messages from the server
 func (ex *ExchangeClient) Listen() error {
 
 	ws, err := websocket.Dial(ex.wsUrl, "", ex.rpcUrl)
@@ -117,7 +118,7 @@ func (ex *ExchangeClient) Close() {
 	close(ex.Done)
 }
 
-// Offer a stock to the ex
+// Offer a parcel of stock for sale
 // Returns the OfferId for the offer.
 func (ex *ExchangeClient) Offer(ticker string, quantity int, price int, ttl int) (int, error) {
 
@@ -140,7 +141,7 @@ func (ex *ExchangeClient) Offer(ticker string, quantity int, price int, ttl int)
 	return result, nil
 }
 
-// Issue a buy offer
+// Bid on an parcel being offered for sale.
 // Returns the BidId for the big
 func (ex *ExchangeClient) Bid(offerId int, price int) (int, error) {
 
@@ -161,8 +162,7 @@ func (ex *ExchangeClient) Bid(offerId int, price int) (int, error) {
 	return result, nil
 }
 
-// Issue a buy offer
-// Returns the BidId for the big
+// List the stocks
 func (ex *ExchangeClient) Stocks() (StockList, error) {
 
 	res, err := ex.call("Command.Stocks", nil)
@@ -175,8 +175,7 @@ func (ex *ExchangeClient) Stocks() (StockList, error) {
 	return result, nil
 }
 
-// Issue a buy offer
-// Returns the BidId for the big
+// List offers
 func (ex *ExchangeClient) Offers() (OfferList, error) {
 
 	res, err := ex.call("Command.Offers", nil)
@@ -189,8 +188,7 @@ func (ex *ExchangeClient) Offers() (OfferList, error) {
 	return result, nil
 }
 
-// Issue a buy offer
-// Returns the BidId for the big
+// List bids
 func (ex *ExchangeClient) Bids(offerId int) (BidList, error) {
 
 	res, err := ex.call("Command.Bids", offerId)
@@ -222,7 +220,7 @@ func (ex *ExchangeClient) AddBroker(brokerId int, brokerName string, credit int)
 	return result, nil
 }
 
-// List the current stock prices
+// Composes a request to be sent to the exchange
 func (ex *ExchangeClient) call(method string, params interface{}) (json.RawMessage, error) {
 
 	req := Request{
@@ -251,7 +249,7 @@ func (ex *ExchangeClient) call(method string, params interface{}) (json.RawMessa
 	return res.Result, nil
 }
 
-// List the current stock prices
+// Send a request to the exchange
 func (ex *ExchangeClient) send(req *Request, res *RawResponse) error {
 
 	logging.Log(req)

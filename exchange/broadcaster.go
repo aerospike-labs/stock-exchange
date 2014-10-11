@@ -25,6 +25,7 @@ func NewBroadcaster(send chan interface{}) *Broadcaster {
 	}
 }
 
+// Listen for messages to broadcast to all brokers
 func (b *Broadcaster) Listen() error {
 	for {
 		select {
@@ -39,6 +40,7 @@ func (b *Broadcaster) Listen() error {
 	return nil
 }
 
+// Send message to all brokers
 func (b *Broadcaster) Send(message []byte) error {
 	for _, c := range b.connections {
 		if err := c.WriteMessage(websocket.TextMessage, message); err != nil {
@@ -48,6 +50,7 @@ func (b *Broadcaster) Send(message []byte) error {
 	return nil
 }
 
+// Listen for connections from brokers
 func (b *Broadcaster) Serve(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "GET" {
 		http.Error(w, "Method not allowed", 405)

@@ -9,14 +9,9 @@ import (
 	// "sync/atomic"
 )
 
-// sequence for Bid Ids
-var bidIdSeq int64 = 0
-
-// sequence for Offer Ids
-var offerIdSeq int64 = 0
-
 type Command struct{}
 
+// List Stocks
 func (command *Command) Stocks(r *http.Request, args *struct{}, stocks *[]m.Stock) error {
 
 	recordset, err := db.ScanAll(scanPolicy, NAMESPACE, STOCKS)
@@ -35,6 +30,7 @@ func (command *Command) Stocks(r *http.Request, args *struct{}, stocks *[]m.Stoc
 	return nil
 }
 
+// List Offers
 func (command *Command) Offers(r *http.Request, args *struct{}, offers *[]m.Offer) error {
 
 	recordset, err := db.ScanAll(scanPolicy, NAMESPACE, OFFERS)
@@ -56,6 +52,7 @@ func (command *Command) Offers(r *http.Request, args *struct{}, offers *[]m.Offe
 	return nil
 }
 
+// Offer a Parcel of Stock for Sale
 func (command *Command) Offer(r *http.Request, offer *m.Offer, offerId *int) error {
 
 	var err error
@@ -143,6 +140,7 @@ func (command *Command) Offer(r *http.Request, offer *m.Offer, offerId *int) err
 	return nil
 }
 
+// List bids on an offer
 func (command *Command) Bids(r *http.Request, offerId *int, bids *[]m.Bid) error {
 
 	stmt := as.NewStatement(NAMESPACE, BIDS)
@@ -165,6 +163,7 @@ func (command *Command) Bids(r *http.Request, offerId *int, bids *[]m.Bid) error
 	return nil
 }
 
+// Place a Bid on an offer for sale
 func (command *Command) Bid(r *http.Request, bid *m.Bid, bidId *int) error {
 
 	var err error
@@ -226,6 +225,7 @@ func (command *Command) Bid(r *http.Request, bid *m.Bid, bidId *int) error {
 	return nil
 }
 
+// Add a new Broker
 func (command *Command) AddBroker(r *http.Request, broker *m.Broker, done *bool) error {
 
 	*done = false

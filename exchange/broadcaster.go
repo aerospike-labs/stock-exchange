@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
+	// "io/ioutil"
 	"net/http"
 )
 
@@ -14,13 +15,13 @@ var upgrader = websocket.Upgrader{
 
 type Broadcaster struct {
 	send        chan interface{}
-	connections map[int]*websocket.Conn
+	connections map[string]*websocket.Conn
 }
 
 func NewBroadcaster(send chan interface{}) *Broadcaster {
 	return &Broadcaster{
 		send:        send,
-		connections: make(map[int]*websocket.Conn, 1024),
+		connections: make(map[string]*websocket.Conn, 1024),
 	}
 }
 
@@ -32,7 +33,6 @@ func (b *Broadcaster) Listen() error {
 			if err != nil {
 				return err
 			}
-			// fmt.Printf("SENDING SOCKET MESSAGE %#v\n", message)
 			b.Send(message)
 		}
 	}
@@ -55,9 +55,9 @@ func (b *Broadcaster) Serve(w http.ResponseWriter, r *http.Request) {
 	}
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("error:", err.Error())
 		return
 	}
 
-	b.connections[1] = ws
+	b.connections[ws.RemoteAddr().String()] = ws
 }

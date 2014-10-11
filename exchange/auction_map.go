@@ -6,7 +6,7 @@ import (
 )
 
 // stores
-var auctionMap AuctionMap
+var auctionMap *AuctionMap = NewAuctionMap()
 
 type AuctionMap struct {
 	auctionMap map[int]chan *m.Bid
@@ -15,7 +15,7 @@ type AuctionMap struct {
 
 func NewAuctionMap() *AuctionMap {
 	return &AuctionMap{
-		auctionMap: map[int]chan *m.Bid{},
+		auctionMap: make(map[int]chan *m.Bid),
 	}
 }
 
@@ -32,7 +32,7 @@ func (am *AuctionMap) Add(auctionId int) chan *m.Bid {
 // Get finds a bid channel in the map and returns it
 func (am *AuctionMap) Get(auctionId int) chan *m.Bid {
 	am.rwmutex.RLock()
-	defer am.rwmutex.Unlock()
+	defer am.rwmutex.RUnlock()
 
 	return am.auctionMap[auctionId]
 }

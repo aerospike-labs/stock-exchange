@@ -6,7 +6,7 @@ import (
 	m "github.com/aerospike-labs/stock-exchange/models"
 	as "github.com/aerospike/aerospike-client-go"
 	"net/http"
-	"sync/atomic"
+	// "sync/atomic"
 )
 
 // sequence for Bid Ids
@@ -17,17 +17,7 @@ var offerIdSeq int64 = 0
 
 type Command struct{}
 
-// name of database entities
-const (
-	NAMESPACE = "test"
-	STOCKS    = "stocks"
-	OFFERS    = "offers"
-	BIDS      = "bids"
-	BROKERS   = "brokers"
-	LOG       = "log"
-)
-
-func (command *Command) Stocks(r *http.Request, args *Command, reply *[]m.Stock) error {
+func (command *Command) Stocks(r *http.Request, args *struct{}, stocks *[]m.Stock) error {
 
 	recordset, err := db.ScanAll(scanPolicy, NAMESPACE, STOCKS)
 	if err != nil {
@@ -35,7 +25,7 @@ func (command *Command) Stocks(r *http.Request, args *Command, reply *[]m.Stock)
 	}
 
 	for rec := range recordset.Records {
-		*reply = append(*reply, m.Stock{
+		*stocks = append(*stocks, m.Stock{
 			Ticker:   rec.Bins["ticker"].(string),
 			Quantity: int(rec.Bins["quantity"].(int)),
 			Price:    int(rec.Bins["price"].(int)),
@@ -45,7 +35,7 @@ func (command *Command) Stocks(r *http.Request, args *Command, reply *[]m.Stock)
 	return nil
 }
 
-func (command *Command) Offers(r *http.Request, args *Command, reply *[]m.Offer) error {
+func (command *Command) Offers(r *http.Request, args *struct{}, offers *[]m.Offer) error {
 
 	recordset, err := db.ScanAll(scanPolicy, NAMESPACE, OFFERS)
 	if err != nil {
@@ -53,7 +43,8 @@ func (command *Command) Offers(r *http.Request, args *Command, reply *[]m.Offer)
 	}
 
 	for rec := range recordset.Records {
-		*reply = append(*reply, m.Offer{
+		*offers = append(*offers, m.Offer{
+			Id:       int(rec.Bins["offer_id"].(int)),
 			BrokerId: int(rec.Bins["broker_id"].(int)),
 			TTL:      rec.Bins["ttl"].(int),
 			Ticker:   rec.Bins["ticker"].(string),
@@ -114,7 +105,11 @@ func (command *Command) Offer(r *http.Request, offer *m.Offer, offerId *int) err
 		}
 	}
 
-	offer.Id = int(atomic.AddInt64(&offerIdSeq, 1))
+	// offer.Id = int(atomic.AddInt64(&offerIdSeq, 1))
+	offer.Id, err = nextSeq("offer")
+	if err != nil {
+		return nil
+	}
 
 	// put the offer up
 	offerKeyId := fmt.Sprintf("%s:%d", OFFERS, offer.Id)
@@ -141,10 +136,32 @@ func (command *Command) Offer(r *http.Request, offer *m.Offer, offerId *int) err
 	broadcast <- &m.Notification{
 		Version: "2.0",
 		Method:  "Offer",
-		Params:  offer,
+		Params:  *offer,
 	}
 
 	go Auctioner(offer.Id, offer.TTL)
+	return nil
+}
+
+func (command *Command) Bids(r *http.Request, offerId *int, bids *[]m.Bid) error {
+
+	stmt := as.NewStatement(NAMESPACE, BIDS)
+	stmt.Addfilter(as.NewEqualFilter("offer_id", *offerId))
+
+	recordset, err := db.Query(nil, stmt)
+	if err != nil {
+		return err
+	}
+
+	for rec := range recordset.Records {
+		*bids = append(*bids, m.Bid{
+			Id:       int(rec.Bins["bid_id"].(int)),
+			BrokerId: rec.Bins["broker_id"].(int),
+			OfferId:  rec.Bins["offer_id"].(int),
+			Price:    int(rec.Bins["price"].(int)),
+		})
+	}
+
 	return nil
 }
 
@@ -158,13 +175,21 @@ func (command *Command) Bid(r *http.Request, bid *m.Bid, bidId *int) error {
 		return err
 	}
 
-	exists, err := db.Exists(readPolicy, offerKey)
-	bidChan := auctionMap.Get(int(offerIdSeq))
-	if err != nil || !exists || bidChan == nil {
-		errors.New("Auction has finished.")
+	offerRec, err := db.Get(readPolicy, offerKey)
+	if err != nil {
+		return err
 	}
 
-	bid.Id = int(atomic.AddInt64(&bidIdSeq, 1))
+	bidChan := auctionMap.Get(bid.OfferId)
+	if err != nil || offerRec == nil || bidChan == nil {
+		return errors.New("Auction has finished.")
+	}
+
+	// bid.Id = int(atomic.AddInt64(&bidIdSeq, 1))
+	bid.Id, err = nextSeq("bid")
+	if err != nil {
+		return nil
+	}
 
 	bidKeyId := fmt.Sprintf("%s:%d", BIDS, bid.Id)
 	bidKey, err := as.NewKey(NAMESPACE, BIDS, bidKeyId)
@@ -185,13 +210,50 @@ func (command *Command) Bid(r *http.Request, bid *m.Bid, bidId *int) error {
 
 	*bidId = bid.Id
 
-	bidChan <- bid
+	// bids < asking price will not be considered in the auction
+	// however, we also prevent the bidder from submitting a new
+	// bid (ie 1 bid per bidder rule)
+	if offerRec.Bins["price"].(int) < bid.Price {
+		bidChan <- bid
 
-	broadcast <- &m.Notification{
-		Version: "2.0",
-		Method:  "Bid",
-		Params:  bid,
+		broadcast <- &m.Notification{
+			Version: "2.0",
+			Method:  "Bid",
+			Params:  *bid,
+		}
 	}
 
+	return nil
+}
+
+func (command *Command) AddBroker(r *http.Request, broker *m.Broker, done *bool) error {
+
+	*done = false
+
+	keyId := fmt.Sprintf("%s:%d", BROKERS, broker.Id)
+	key, _ := as.NewKey(NAMESPACE, BROKERS, keyId)
+
+	db.Delete(nil, key)
+
+	bins := as.BinMap{
+		"broker_id":   broker.Id,
+		"broker_name": broker.Name,
+		"credit":      broker.Credit,
+	}
+
+	policy := &as.WritePolicy{
+		BasePolicy:         *as.NewPolicy(),
+		RecordExistsAction: as.CREATE_ONLY,
+		GenerationPolicy:   as.NONE,
+		Generation:         0,
+		Expiration:         0,
+		SendKey:            false,
+	}
+
+	if err := db.Put(policy, key, bins); err != nil {
+		return err
+	}
+
+	*done = true
 	return nil
 }

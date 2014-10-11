@@ -4,6 +4,12 @@ import (
 	"encoding/json"
 )
 
+type Broker struct {
+	Id     int
+	Name   string
+	Credit int
+}
+
 type Stock struct {
 	Ticker   string
 	Quantity int

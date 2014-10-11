@@ -1,4 +1,4 @@
-package main
+package client
 
 import (
 	. "github.com/aerospike-labs/stock-exchange/models"
@@ -60,17 +60,17 @@ func (ex *ExchangeClient) Listen() error {
 	ex.ws = ws
 
 	for {
-		var raw []byte
+		raw := make([]byte, 1024)
 
 		if err := websocket.Message.Receive(ex.ws, &raw); err != nil {
-			fmt.Printf("GOT ERROR %#v\n\n", err)
+			fmt.Println("error:", err.Error())
 			ex.Done <- true
-			return err
+			return nil
 		}
 
 		var rawNotice RawNotification
 
-		json.Unmarshal([]byte(raw), &rawNotice)
+		json.Unmarshal(raw, &rawNotice)
 
 		notice := &Notification{
 			Version: rawNotice.Version,
@@ -80,20 +80,28 @@ func (ex *ExchangeClient) Listen() error {
 
 		switch rawNotice.Method {
 		case "Offer":
-			notice.Params = Offer{}
-			json.Unmarshal(rawNotice.Params, &notice.Params)
+			var params Offer
+			json.Unmarshal(rawNotice.Params, &params)
+			notice.Params = params
 
 		case "Bid":
-			notice.Params = Bid{}
-			json.Unmarshal(rawNotice.Params, &notice.Params)
+			var params Bid
+			json.Unmarshal(rawNotice.Params, &params)
+			notice.Params = params
 
 		case "Close":
-			notice.Params = Bid{}
-			json.Unmarshal(rawNotice.Params, &notice.Params)
+			var params Bid
+			json.Unmarshal(rawNotice.Params, &params)
+			notice.Params = params
+
+		case "Cancel":
+			var params int
+			json.Unmarshal(rawNotice.Params, &params)
+			notice.Params = params
 
 		}
 
-		logging.Log(&notice)
+		logging.Log(notice)
 		ex.Messages <- notice
 	}
 
@@ -113,7 +121,7 @@ func (ex *ExchangeClient) Close() {
 // Returns the OfferId for the offer.
 func (ex *ExchangeClient) Offer(ticker string, quantity int, price int, ttl int) (int, error) {
 
-	offer := &Offer{
+	offer := Offer{
 		Id:       0, // Set to 0, b/c it will be assigned by exchange
 		BrokerId: ex.BrokerId,
 		TTL:      ttl,
@@ -136,7 +144,7 @@ func (ex *ExchangeClient) Offer(ticker string, quantity int, price int, ttl int)
 // Returns the BidId for the big
 func (ex *ExchangeClient) Bid(offerId int, price int) (int, error) {
 
-	bid := &Bid{
+	bid := Bid{
 		Id:       0, // Set to 0, b/c it will be assigned by exchange
 		BrokerId: ex.BrokerId,
 		OfferId:  offerId,
@@ -181,6 +189,39 @@ func (ex *ExchangeClient) Offers() (OfferList, error) {
 	return result, nil
 }
 
+// Issue a buy offer
+// Returns the BidId for the big
+func (ex *ExchangeClient) Bids(offerId int) (BidList, error) {
+
+	res, err := ex.call("Command.Bids", offerId)
+	if err != nil {
+		return nil, err
+	}
+
+	result := BidList{}
+	json.Unmarshal(res, &result)
+	return result, nil
+}
+
+// Add new broker
+func (ex *ExchangeClient) AddBroker(brokerId int, brokerName string, credit int) (bool, error) {
+
+	broker := Broker{
+		Id:     brokerId, // Set to 0, b/c it will be assigned by exchange
+		Name:   brokerName,
+		Credit: credit,
+	}
+
+	res, err := ex.call("Command.AddBroker", broker)
+	if err != nil {
+		return false, err
+	}
+
+	result := false
+	json.Unmarshal(res, &result)
+	return result, nil
+}
+
 // List the current stock prices
 func (ex *ExchangeClient) call(method string, params interface{}) (json.RawMessage, error) {
 
@@ -204,7 +245,8 @@ func (ex *ExchangeClient) call(method string, params interface{}) (json.RawMessa
 
 		return nil, fmt.Errorf("Command failed: %#v", reserr)
 	}
-	logging.Log(res.Result)
+
+	logging.Log(res)
 
 	return res.Result, nil
 }

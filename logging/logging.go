@@ -43,6 +43,14 @@ func Listen() {
 				json.Unmarshal(m.Result, &res)
 
 				log.Printf("<RES> %d %#v %#v", m.Id, res, err)
+			case RawResponse:
+				var err interface{}
+				var res interface{}
+
+				json.Unmarshal(m.Error, &err)
+				json.Unmarshal(m.Result, &res)
+
+				log.Printf("<RES> %d %#v %#v", m.Id, res, err)
 			case *Notification:
 				log.Printf("<MSG> %s %#v", m.Method, m.Params)
 			case *RawNotification:

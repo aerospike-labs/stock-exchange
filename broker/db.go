@@ -9,24 +9,25 @@ import (
 )
 
 const (
-	NAMESPACE      = "test"
-	SET_BIDS       = "bids"
-	SET_OFFERS     = "offers"
-	SET_TICKERS    = "tickers"
-	SET_PRICES     = "prices"
-	SET_PORTFOLIOS = "portfolios"
+	NAMESPACE  = "test"
+	BIDS       = "broker:bids"
+	OFFERS     = "broker:offers"
+	TICKERS    = "broker:tickers"
+	PRICES     = "broker:prices"
+	PORTFOLIOS = "broker:portfolios"
 )
 
 var db *as.Client
 var readPolicy *as.BasePolicy
 var writePolicy *as.WritePolicy
 var scanPolicy *as.ScanPolicy
+var queryPolicy *as.QueryPolicy
 
 func storeOffer(offer *Offer) error {
 
 	var err error
 
-	key, err := as.NewKey(NAMESPACE, SET_OFFERS, offer.Id)
+	key, err := as.NewKey(NAMESPACE, OFFERS, offer.Id)
 	if err != nil {
 		return err
 	}
@@ -51,7 +52,7 @@ func storeBid(bid *Bid) error {
 
 	var err error
 
-	key, err := as.NewKey(NAMESPACE, SET_BIDS, bid.Id)
+	key, err := as.NewKey(NAMESPACE, BIDS, bid.Id)
 	if err != nil {
 		return err
 	}
@@ -84,15 +85,19 @@ func storeWinningBid(bid *Bid) error {
 
 	// Read the offer, to get the ticker_id
 
-	offerId := fmt.Sprintf("%s:%d", SET_OFFERS, bid.OfferId)
-	offerKey, err := as.NewKey(NAMESPACE, SET_OFFERS, offerId)
+	offerKeyId := fmt.Sprintf("%s:%d", OFFERS, bid.OfferId)
+	offerKey, err := as.NewKey(NAMESPACE, OFFERS, offerKeyId)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	offerRec, err := db.Get(readPolicy, offerKey)
 	if err != nil {
-		return nil
+		return err
+	}
+
+	if offerRec == nil {
+		return fmt.Errorf("Record not found %#v", offerKey)
 	}
 
 	ticker := offerRec.Bins["ticker"]
@@ -100,8 +105,8 @@ func storeWinningBid(bid *Bid) error {
 
 	// Update the current ticker price
 
-	tickerId := fmt.Sprintf("%s:%d", SET_TICKERS, ticker)
-	tickerKey, err := as.NewKey(NAMESPACE, SET_TICKERS, tickerId)
+	tickerKeyId := fmt.Sprintf("%s:%d", TICKERS, ticker)
+	tickerKey, err := as.NewKey(NAMESPACE, TICKERS, tickerKeyId)
 	if err != nil {
 		return err
 	}
@@ -119,8 +124,8 @@ func storeWinningBid(bid *Bid) error {
 	// Store the ticker price for historical prices
 	// There is an index on ticker
 
-	priceId := fmt.Sprintf("%s:%d:%d", SET_PRICES, ticker, ts)
-	priceKey, err := as.NewKey(NAMESPACE, SET_PRICES, priceId)
+	priceKeyId := fmt.Sprintf("%s:%d:%d", PRICES, ticker, ts)
+	priceKey, err := as.NewKey(NAMESPACE, PRICES, priceKeyId)
 	if err != nil {
 		return err
 	}
@@ -137,8 +142,8 @@ func storeWinningBid(bid *Bid) error {
 
 	// Update Porfolio
 
-	portfolioId := fmt.Sprintf("%s:%d", SET_PORTFOLIOS, bid.BrokerId)
-	portfolioKey, err := as.NewKey(NAMESPACE, SET_PORTFOLIOS, portfolioId)
+	portfolioKeyId := fmt.Sprintf("%s:%d", PORTFOLIOS, bid.BrokerId)
+	portfolioKey, err := as.NewKey(NAMESPACE, PORTFOLIOS, portfolioKeyId)
 	if err != nil {
 		return err
 	}
@@ -165,4 +170,25 @@ func connectToDatabase(host string, port int) {
 	readPolicy = as.NewPolicy()
 	writePolicy = as.NewWritePolicy(0, 0)
 	scanPolicy = as.NewScanPolicy()
+
+	// index on offer_id of bids, so we can find bids on a given offer
+	if _, err := db.CreateIndex(writePolicy, "test", BIDS, "idx:br:1", "offer_id", as.NUMERIC); err != nil {
+		fmt.Printf("Create Index Failed: %s\n", err.Error())
+	}
+
+	// index on broker_id of bids, so we can find bids by a particular broker
+	if _, err := db.CreateIndex(writePolicy, "test", BIDS, "idx:br:2", "broker_id", as.NUMERIC); err != nil {
+		fmt.Printf("Create Index Failed: %s\n", err.Error())
+	}
+
+	// index on broker_id of offers, so we can find offers by a particular broker
+	if _, err := db.CreateIndex(writePolicy, "test", OFFERS, "idx:br:3", "broker_id", as.NUMERIC); err != nil {
+		fmt.Printf("Create Index Failed: %s\n", err.Error())
+	}
+
+	// index on ticker of prices
+	if _, err := db.CreateIndex(writePolicy, "test", PRICES, "idx:br:4", "ticker", as.STRING); err != nil {
+		fmt.Printf("Create Index Failed: %s\n", err.Error())
+	}
+
 }

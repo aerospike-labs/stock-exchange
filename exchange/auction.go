@@ -12,18 +12,18 @@ func Auctioner(offerId int, TTL int) {
 
 	bidderChan := auctionMap.Add(offerId)
 	var bestBid *m.Bid
-
+	tmout := time.After(time.Duration(TTL) * time.Second)
 L:
 	for {
 		select {
-		case <-time.After(time.Duration(TTL) * time.Second):
+		case <-tmout:
 
 			if bestBid != nil {
 				CloseAuction(offerId, bestBid)
 				broadcast <- &m.Notification{
 					Version: "2.0",
 					Method:  "Close",
-					Params:  bestBid,
+					Params:  *bestBid,
 				}
 			} else {
 				broadcast <- &m.Notification{
@@ -57,16 +57,16 @@ func CloseAuction(offerId int, bid *m.Bid) {
 	buyerKeyId := fmt.Sprintf("%s:%d", BROKERS, bid.BrokerId)
 	buyerKey, _ := as.NewKey(NAMESPACE, BROKERS, buyerKeyId)
 	db.Operate(writePolicy, buyerKey,
-		as.AddOp(as.NewBin(offerRec.Bins["ticker"].(string), offerRec.Bins["Quantity"].(int))),
-		as.AddOp(as.NewBin("credit", -1*offerRec.Bins["Quantity"].(int)*int(bid.Price))),
+		as.AddOp(as.NewBin(offerRec.Bins["ticker"].(string), offerRec.Bins["quantity"].(int))),
+		as.AddOp(as.NewBin("credit", -1*offerRec.Bins["quantity"].(int)*int(bid.Price))),
 	)
 
 	// reduce seller's inventory and add to credit
 	sellerKeyId := fmt.Sprintf("%s:%d", BROKERS, sellerId)
 	sellerKey, _ := as.NewKey(NAMESPACE, BROKERS, sellerKeyId)
 	db.Operate(writePolicy, sellerKey,
-		as.AddOp(as.NewBin(offerRec.Bins["ticker"].(string), -1*offerRec.Bins["Quantity"].(int))),
-		as.AddOp(as.NewBin("credit", offerRec.Bins["Quantity"].(int)*int(bid.Price))),
+		as.AddOp(as.NewBin(offerRec.Bins["ticker"].(string), -1*offerRec.Bins["quantity"].(int))),
+		as.AddOp(as.NewBin("credit", offerRec.Bins["quantity"].(int)*int(bid.Price))),
 	)
 
 	// mark the bid as winner

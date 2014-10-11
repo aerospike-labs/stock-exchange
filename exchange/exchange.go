@@ -24,11 +24,11 @@ func main() {
 
 	listen := fmt.Sprintf("%s:%d", *host, 7000)
 
-	// defined in db.gp
-	connectToDatabase(*host, *port)
-
 	// parse flags
 	flag.Parse()
+
+	// defined in db.gp
+	connectToDatabase(*host, *port)
 
 	if *seed {
 		seed_db()

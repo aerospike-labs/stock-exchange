@@ -2,16 +2,17 @@ package main
 
 import (
 	"fmt"
-	as "github.com/aerospike/aerospike-client-go"
 	"os"
+
+	as "github.com/aerospike/aerospike-client-go"
 )
 
 func seed_db() {
-	println("Sedding db...")
+	println("Seeding db...")
 
 	var key *as.Key
 
-	println("Sedding stocks...")
+	println("Seeding stocks...")
 
 	// put stocks
 	key, _ = as.NewKey(NAMESPACE, STOCKS, "GOOG")

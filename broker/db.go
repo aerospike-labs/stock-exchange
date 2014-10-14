@@ -28,7 +28,8 @@ func storeOffer(offer *Offer) error {
 
 	var err error
 
-	key, err := as.NewKey(NAMESPACE, OFFERS, offer.Id)
+	keyId := fmt.Sprintf("%s:%d", OFFERS, offer.Id)
+	key, err := as.NewKey(NAMESPACE, OFFERS, keyId)
 	if err != nil {
 		return err
 	}
@@ -42,9 +43,7 @@ func storeOffer(offer *Offer) error {
 		"price":     offer.Price,
 	}
 
-	if err = db.Put(writePolicy, key, rec); err != nil {
-		return nil
-	}
+	// TODO: use the Put Operation to store the record.
 
 	return nil
 }
@@ -54,7 +53,8 @@ func storeBid(bid *Bid) error {
 
 	var err error
 
-	key, err := as.NewKey(NAMESPACE, BIDS, bid.Id)
+	keyId := fmt.Sprintf("%s:%d", BIDS, bid.Id)
+	key, err := as.NewKey(NAMESPACE, BIDS, keyId)
 	if err != nil {
 		return err
 	}
@@ -66,9 +66,7 @@ func storeBid(bid *Bid) error {
 		"price":     bid.Price,
 	}
 
-	if err = db.Put(writePolicy, key, rec); err != nil {
-		return nil
-	}
+	// TODO: use the Put Operation to store the record.
 
 	return nil
 }
@@ -102,8 +100,9 @@ func storeWinningBid(bid *Bid) error {
 		return fmt.Errorf("Record not found %#v", offerKey)
 	}
 
-	ticker := offerRec.Bins["ticker"]
-	quantity := offerRec.Bins["quantity"]
+	ticker := offerRec.Bins["ticker"].(string)
+	quantity := offerRec.Bins["quantity"].(int)
+	sellerId := offerRec.Bins["broker_id"].(int)
 
 	// Update the current ticker price
 
@@ -119,9 +118,7 @@ func storeWinningBid(bid *Bid) error {
 		"time":   ts,
 	}
 
-	if err = db.Put(writePolicy, tickerKey, tickerBins); err != nil {
-		return err
-	}
+	// TODO: use the Put operation to update the ticker latest price
 
 	// Store the ticker price for historical prices
 	// There is an index on ticker
@@ -138,25 +135,32 @@ func storeWinningBid(bid *Bid) error {
 		"time":   ts,
 	}
 
-	if err = db.Put(writePolicy, priceKey, priceBins); err != nil {
-		return err
-	}
+	// TODO: Use the Put operation to store Record the price change
 
 	// Update Porfolio
 
-	portfolioKeyId := fmt.Sprintf("%s:%d", PORTFOLIOS, bid.BrokerId)
-	portfolioKey, err := as.NewKey(NAMESPACE, PORTFOLIOS, portfolioKeyId)
+	sellerKeyId := fmt.Sprintf("%s:%d", PORTFOLIOS, sellerId)
+	sellerKey, err := as.NewKey(NAMESPACE, PORTFOLIOS, sellerKeyId)
 	if err != nil {
 		return err
 	}
 
-	portfolioBins := as.BinMap{
-		ticker.(string): quantity,
-	}
-
-	if err = db.Add(writePolicy, portfolioKey, portfolioBins); err != nil {
+	buyerKeyId := fmt.Sprintf("%s:%d", PORTFOLIOS, bid.BrokerId)
+	buyerKey, err := as.NewKey(NAMESPACE, PORTFOLIOS, buyerKeyId)
+	if err != nil {
 		return err
 	}
+
+	sellerBins := as.BinMap{
+		ticker: quantity,
+	}
+
+	buyerBins := as.BinMap{
+		ticker: quantity,
+	}
+
+	// TODO: To do, use the Add operationg to increment the portfolios
+	// of the buyer and seller
 
 	return nil
 }

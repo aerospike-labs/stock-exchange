@@ -12,29 +12,34 @@ import (
 	"time"
 )
 
-// broadcast channel
-var broadcast chan interface{} = make(chan interface{}, 1024)
+var (
+	// broadcast channel
+	broadcast chan interface{} = make(chan interface{}, 1024)
+
+	seed   bool   = false
+	addr   string = "127.0.0.1"
+	port   int    = 7000
+	dbHost string = "127.0.0.1"
+	dbPort int    = 3000
+)
 
 func main() {
-	var seed = flag.Bool("s", false, "seed db with data and exit")
-	var broker = flag.Int("b", 0, "add a broker and exit")
-	var brokerName = flag.String("bn", "", "broker name")
-	var host = flag.String("h", "127.0.0.1", "Aerospike server seed hostnames or IP addresses")
-	var port = flag.Int("p", 3000, "Aerospike server seed hostname or IP address port number.")
-
-	listen := fmt.Sprintf("%s:%d", *host, 7000)
 
 	// parse flags
+	flag.BoolVar(&seed, "s", seed, "seed db with data and exit")
+	flag.StringVar(&addr, "addr", addr, "Exchange listening address")
+	flag.IntVar(&port, "port", port, "Exchange listening port")
+	flag.StringVar(&dbHost, "dbhost", dbHost, "Aerospike host")
+	flag.IntVar(&dbPort, "dbport", dbPort, "Aerospike port")
 	flag.Parse()
 
-	// defined in db.gp
-	connectToDatabase(*host, *port)
+	listen := fmt.Sprintf("%s:%d", addr, port)
 
-	if *seed {
+	// defined in db.gp
+	connectToDatabase(dbHost, dbPort)
+
+	if seed {
 		seed_db()
-		os.Exit(0)
-	} else if *broker > 0 {
-		seed_broker(*broker, *brokerName)
 		os.Exit(0)
 	}
 

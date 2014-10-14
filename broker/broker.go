@@ -93,10 +93,10 @@ func processNotifications(ex *ExchangeClient) {
 				// store the bid
 				storeBid(&bid)
 
-				// additional processing of the bid
-				if bid.BrokerId != ex.BrokerId {
-					ex.Bid(bid.OfferId, bid.Price+1)
-				}
+				// // additional processing of the bid
+				// if bid.BrokerId != ex.BrokerId {
+				// 	ex.Bid(bid.OfferId, bid.Price+1)
+				// }
 
 			case "Close":
 				bid := message.Params.(Bid)
